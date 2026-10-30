@@ -43,8 +43,8 @@ private val CardBorder = Color(0xFFD3E2F8)
 
 @Composable
 fun OwnerProfileScreen(
-    hotelName: String = "Sunset Hotel",
-    location: String = "Lilongwe",
+    hotelName: String,
+    location: String,
     onBackClick: () -> Unit = {},
     onLogoutClick: () -> Unit = {}
 ) {
@@ -161,5 +161,6 @@ private fun DetailLine(label: String, value: String) {
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun OwnerProfileScreenPreview() {
-    OwnerProfileScreen()
-}
+    // preview-only placeholder values; the real screen shows the owner's hotel from the database
+    OwnerProfileScreen(hotelName = "Sample Hotel", location = "Sample City")
+}

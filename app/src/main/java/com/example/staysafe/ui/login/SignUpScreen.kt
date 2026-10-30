@@ -51,13 +51,12 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.staysafe.data.MIN_PASSWORD_LENGTH
-import com.example.staysafe.data.availableCities
+import com.example.staysafe.data.HotelRepository
 
 private val SignUpFieldBackground = Color(0xFFEAF2FF)
 private val SignUpFieldBorder = Color(0xFFD3E2F8)
 
-// hotelName and city
+// hotelName and city are only set for hotel owners
 data class SignUpData(
     val fullName: String,
     val phone: String,
@@ -69,10 +68,9 @@ data class SignUpData(
 
 @Composable
 fun SignUpScreen(
-    cities: List<String> = availableCities,
+    cities: List<String> = HotelRepository.cities,
     errorMessage: String? = null,
-    isLoading: Boolean = false,
-    onInputChanged: () -> Unit = {},
+    onInputChange: () -> Unit = {},
     onSignUpClick: (SignUpData) -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
@@ -88,15 +86,11 @@ fun SignUpScreen(
 
     val isOwner = selectedRole == UserRole.HotelOwner
 
-    // guests only need name, phone and password; owners also need hotel name and city
-    val passwordTooShort = password.isNotEmpty() && password.length < MIN_PASSWORD_LENGTH
-
     val canSignUp = fullName.isNotBlank() &&
             isValidPhone(phone) &&
-            password.length >= MIN_PASSWORD_LENGTH &&
+            password.isNotBlank() &&
             confirmPassword == password &&
-            (!isOwner || (hotelName.isNotBlank() && city.isNotBlank())) &&
-            !isLoading
+            (!isOwner || (hotelName.isNotBlank() && city.isNotBlank()))
 
     val passwordsMismatch = confirmPassword.isNotEmpty() && confirmPassword != password
 
@@ -133,20 +127,14 @@ fun SignUpScreen(
 
             RoleToggle(
                 selectedRole = selectedRole,
-                onRoleSelected = {
-                    selectedRole = it
-                    onInputChanged()
-                }
+                onRoleSelected = { selectedRole = it }
             )
 
             Spacer(modifier = Modifier.height(20.dp))
 
             InputField(
                 value = fullName,
-                onValueChange = {
-                    fullName = it
-                    onInputChanged()
-                },
+                onValueChange = { fullName = it },
                 placeholder = "Full Name",
                 leadingIcon = Icons.Outlined.Person,
                 keyboardType = KeyboardType.Text
@@ -158,7 +146,7 @@ fun SignUpScreen(
                 value = phone,
                 onValueChange = {
                     phone = it
-                    onInputChanged()
+                    onInputChange()
                 },
                 placeholder = "Phone Number",
                 leadingIcon = Icons.Outlined.Phone,
@@ -173,7 +161,6 @@ fun SignUpScreen(
                 )
             }
 
-            // hotel details only apply to hotel owners
             if (isOwner) {
                 Spacer(modifier = Modifier.height(14.dp))
 
@@ -181,7 +168,7 @@ fun SignUpScreen(
                     value = hotelName,
                     onValueChange = {
                         hotelName = it
-                        onInputChanged()
+                        onInputChange()
                     },
                     placeholder = "Hotel Name",
                     leadingIcon = Icons.Outlined.Hotel,
@@ -193,10 +180,7 @@ fun SignUpScreen(
                 CityDropdown(
                     selectedCity = city,
                     cities = cities,
-                    onCitySelected = {
-                        city = it
-                        onInputChanged()
-                    }
+                    onCitySelected = { city = it }
                 )
             }
 
@@ -204,10 +188,7 @@ fun SignUpScreen(
 
             InputField(
                 value = password,
-                onValueChange = {
-                    password = it
-                    onInputChanged()
-                },
+                onValueChange = { password = it },
                 placeholder = "Password",
                 leadingIcon = Icons.Outlined.Lock,
                 keyboardType = KeyboardType.Password,
@@ -225,23 +206,11 @@ fun SignUpScreen(
                 }
             )
 
-            if (passwordTooShort) {
-                Text(
-                    text = "Password must be at least $MIN_PASSWORD_LENGTH characters",
-                    color = Color(0xFFD62839),
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 6.dp)
-                )
-            }
-
             Spacer(modifier = Modifier.height(14.dp))
 
             InputField(
                 value = confirmPassword,
-                onValueChange = {
-                    confirmPassword = it
-                    onInputChanged()
-                },
+                onValueChange = { confirmPassword = it },
                 placeholder = "Confirm Password",
                 leadingIcon = Icons.Outlined.Lock,
                 keyboardType = KeyboardType.Password,
@@ -264,15 +233,6 @@ fun SignUpScreen(
                     color = Color(0xFFD62839),
                     fontSize = 12.sp,
                     modifier = Modifier.padding(top = 6.dp)
-                )
-            }
-
-            if (errorMessage != null) {
-                Text(
-                    text = errorMessage,
-                    color = Color(0xFFD62839),
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(top = 10.dp)
                 )
             }
 
@@ -302,11 +262,7 @@ fun SignUpScreen(
                     disabledContentColor = Color.White
                 )
             ) {
-                Text(
-                    text = if (isLoading) "Creating account..." else "Sign Up",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Text(text = "Sign Up", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
 
             Spacer(modifier = Modifier.height(24.dp))

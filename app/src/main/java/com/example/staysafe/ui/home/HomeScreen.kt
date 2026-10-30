@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -55,18 +53,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.staysafe.data.AuthRepository
 import com.example.staysafe.data.GuestBooking
 import com.example.staysafe.data.Hotel
 import com.example.staysafe.data.HotelRepository
-import com.example.staysafe.data.availableCities
 import com.example.staysafe.ui.login.HintGray
 import com.example.staysafe.ui.login.ScreenBackground
 import com.example.staysafe.ui.login.StayBlue
@@ -83,23 +77,17 @@ private val ImagePlaceholder = Color(0xFFBBD3F5)
 @Composable
 fun HomeScreen(
     hotels: List<Hotel> = HotelRepository.hotels,
-    initialCity: String = "Lilongwe",
-    initialSearchText: String = "",
-    cities: List<String> = availableCities,
+    cities: List<String> = HotelRepository.cities,
+    initialCity: String = cities.firstOrNull().orEmpty(),
     bookings: List<GuestBooking> = HotelRepository.bookings,
-    hotelsLoaded: Boolean = HotelRepository.hotelsLoaded,
-    userName: String = AuthRepository.currentUser?.fullName.orEmpty(),
-    userPhone: String = AuthRepository.currentUser?.phone.orEmpty(),
     onHotelClick: (Hotel) -> Unit = {},
     onProfileClick: () -> Unit = {},
     onLogoutClick: () -> Unit = {}
 ) {
     // rememberSaveable so state survives navigating away and back
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    var searchText by rememberSaveable(initialSearchText) { mutableStateOf(initialSearchText) }
-    var selectedCity by rememberSaveable(initialCity) {
-        mutableStateOf(if (initialCity.isNotBlank()) initialCity else "Lilongwe")
-    }
+    var searchText by rememberSaveable { mutableStateOf("") }
+    var selectedCity by rememberSaveable { mutableStateOf(initialCity) }
 
     // Back on Bookings/Profile returns to the Home tab
     BackHandler(enabled = selectedTab != 0) { selectedTab = 0 }
@@ -110,7 +98,7 @@ fun HomeScreen(
     val bookedTotal = hotelsInCity.sumOf { HotelRepository.bookedCount(it.name) }
 
     val visibleHotels = hotelsInCity.filter {
-        it.name.contains(searchText.trim(), ignoreCase = true)
+        it.name.contains(searchText, ignoreCase = true)
     }
 
     Scaffold(
@@ -126,7 +114,6 @@ fun HomeScreen(
             0 -> HomeTab(
                 innerPadding = innerPadding,
                 hotels = visibleHotels,
-                hotelsLoaded = hotelsLoaded,
                 city = selectedCity,
                 cities = cities,
                 onCitySelected = { selectedCity = it },
@@ -141,12 +128,7 @@ fun HomeScreen(
                 }
             )
             1 -> BookingsTab(innerPadding = innerPadding, bookings = bookings)
-            else -> ProfileTab(
-                innerPadding = innerPadding,
-                userName = userName,
-                userPhone = userPhone,
-                onLogoutClick = onLogoutClick
-            )
+            else -> ProfileTab(innerPadding = innerPadding, onLogoutClick = onLogoutClick)
         }
     }
 }
@@ -155,7 +137,6 @@ fun HomeScreen(
 private fun HomeTab(
     innerPadding: PaddingValues,
     hotels: List<Hotel>,
-    hotelsLoaded: Boolean,
     city: String,
     cities: List<String>,
     onCitySelected: (String) -> Unit,
@@ -166,8 +147,6 @@ private fun HomeTab(
     onHotelClick: (Hotel) -> Unit,
     onProfileClick: () -> Unit
 ) {
-    val focusManager = LocalFocusManager.current
-
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -214,8 +193,6 @@ private fun HomeTab(
                     .fillMaxWidth()
                     .height(56.dp),
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                 shape = RoundedCornerShape(10.dp),
                 placeholder = { Text("Search hotels...", color = HintGray, fontSize = 14.sp) },
                 leadingIcon = {
@@ -259,15 +236,7 @@ private fun HomeTab(
         item { SectionTitle("Nearby Hotels") }
         if (hotels.isEmpty()) {
             item {
-                Text(
-                    text = when {
-                        !hotelsLoaded -> "Loading hotels..."
-                        searchText.isNotBlank() -> "No hotels match that name"
-                        else -> "No hotels in $city yet"
-                    },
-                    color = TextGray,
-                    fontSize = 14.sp
-                )
+                Text(text = "No hotels found", color = HintGray, fontSize = 13.sp)
             }
         }
         items(hotels) { hotel ->
@@ -472,12 +441,7 @@ private fun BookingCard(booking: GuestBooking) {
 }
 
 @Composable
-private fun ProfileTab(
-    innerPadding: PaddingValues,
-    userName: String,
-    userPhone: String,
-    onLogoutClick: () -> Unit
-) {
+private fun ProfileTab(innerPadding: PaddingValues, onLogoutClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -494,13 +458,13 @@ private fun ProfileTab(
         )
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = userName.ifBlank { "Profile" },
+            text = "Profile",
             color = StayBlueDark,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = userPhone.ifBlank { "Your profile details will appear here." },
+            text = "Your profile details will appear here.",
             color = HintGray,
             fontSize = 13.sp,
             textAlign = TextAlign.Center
@@ -630,8 +594,7 @@ private data class BottomTab(val label: String, val icon: ImageVector)
 private fun HomeBottomBar(selectedTab: Int, onTabSelected: (Int) -> Unit) {
     val tabs = listOf(
         BottomTab("Home", Icons.Outlined.Home),
-        BottomTab("Bookings", Icons.Outlined.CalendarMonth),
-        BottomTab("Profile", Icons.Outlined.AccountCircle)
+        BottomTab("Bookings", Icons.Outlined.CalendarMonth)
     )
     NavigationBar(containerColor = Color.White) {
         tabs.forEachIndexed { index, tab ->
@@ -656,4 +619,4 @@ private fun HomeBottomBar(selectedTab: Int, onTabSelected: (Int) -> Unit) {
 @Composable
 private fun HomeScreenPreview() {
     HomeScreen()
-}
+}

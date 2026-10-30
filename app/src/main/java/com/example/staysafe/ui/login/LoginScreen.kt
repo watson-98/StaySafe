@@ -67,8 +67,7 @@ fun isValidPhone(phone: String): Boolean = phoneRegex.matches(phone.trim())
 @Composable
 fun LoginScreen(
     errorMessage: String? = null,
-    isLoading: Boolean = false,
-    onInputChanged: () -> Unit = {},
+    onInputChange: () -> Unit = {},
     onLoginClick: (phone: String, password: String, role: UserRole) -> Unit = { _, _, _ -> },
     onSignUpClick: () -> Unit = {}
 ) {
@@ -115,10 +114,7 @@ fun LoginScreen(
 
             RoleToggle(
                 selectedRole = selectedRole,
-                onRoleSelected = {
-                    selectedRole = it
-                    onInputChanged()
-                }
+                onRoleSelected = { selectedRole = it }
             )
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -127,7 +123,7 @@ fun LoginScreen(
                 value = phone,
                 onValueChange = {
                     phone = it
-                    onInputChanged()
+                    onInputChange()
                 },
                 placeholder = "Phone Number",
                 leadingIcon = Icons.Outlined.Person,
@@ -148,7 +144,7 @@ fun LoginScreen(
                 value = password,
                 onValueChange = {
                     password = it
-                    onInputChanged()
+                    onInputChange()
                 },
                 placeholder = "Password",
                 leadingIcon = Icons.Outlined.Lock,
@@ -172,7 +168,7 @@ fun LoginScreen(
                     text = errorMessage,
                     color = Color(0xFFD62839),
                     fontSize = 13.sp,
-                    modifier = Modifier.padding(top = 10.dp)
+                    modifier = Modifier.padding(top = 12.dp)
                 )
             }
 
@@ -180,7 +176,7 @@ fun LoginScreen(
 
             Button(
                 onClick = { onLoginClick(phone.trim(), password, selectedRole) },
-                enabled = isValidPhone(phone) && password.isNotBlank() && !isLoading,
+                enabled = isValidPhone(phone) && password.isNotBlank(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -191,11 +187,7 @@ fun LoginScreen(
                     disabledContentColor = Color.White
                 )
             ) {
-                Text(
-                    text = if (isLoading) "Logging in..." else "Log In",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Text(text = "Log In", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -309,4 +301,4 @@ fun InputField(
 @Composable
 private fun LoginScreenPreview() {
     LoginScreen()
-}
+}

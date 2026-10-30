@@ -1,41 +1,26 @@
 package com.example.staysafe
 
 import android.net.Uri
-import android.widget.Toast
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.staysafe.data.AuthRepository
-import com.example.staysafe.data.BookingDraft
 import com.example.staysafe.data.HotelRepository
-import com.example.staysafe.data.ROOM_TAKEN_ERROR
-import com.example.staysafe.data.UserProfile
 import com.example.staysafe.ui.booking.BookingConfirmationScreen
 import com.example.staysafe.ui.booking.BookingSuccessScreen
 import com.example.staysafe.ui.home.HomeScreen
 import com.example.staysafe.ui.login.LoginScreen
-import com.example.staysafe.ui.login.ScreenBackground
 import com.example.staysafe.ui.login.SignUpScreen
-import com.example.staysafe.ui.login.StayBlue
 import com.example.staysafe.ui.login.UserRole
 import com.example.staysafe.ui.owner.AddRoomScreen
-import com.example.staysafe.ui.owner.ROOM_EXISTS_ERROR
 import com.example.staysafe.ui.owner.OwnerDashboardScreen
 import com.example.staysafe.ui.owner.OwnerProfileScreen
 import com.example.staysafe.ui.owner.OwnerRoomListScreen
@@ -46,10 +31,9 @@ import com.example.staysafe.ui.rooms.RoomListScreen
 import com.example.staysafe.ui.rooms.RoomStatus
 
 object Routes {
-    const val SPLASH = "splash"
     const val LOGIN = "login"
     const val SIGN_UP = "sign_up"
-    const val HOME_ROUTE = "home?city={city}&hotelName={hotelName}"
+    const val HOME = "home"
     const val ROOM_LIST = "room_list/{hotelName}"
     const val ROOM_DETAILS = "room_details/{hotelName}/{roomNumber}"
     const val BOOKING_CONFIRM = "booking_confirm"
@@ -60,9 +44,6 @@ object Routes {
     const val OWNER_PROFILE = "owner_profile"
     const val ADD_ROOM = "add_room"
 
-    fun home(city: String = "", hotelName: String = "") =
-        "home?city=${Uri.encode(city)}&hotelName=${Uri.encode(hotelName)}"
-
     // Uri.encode keeps names with spaces valid in a route
     fun roomList(hotelName: String) = "room_list/${Uri.encode(hotelName)}"
 
@@ -72,121 +53,64 @@ object Routes {
 
 @Composable
 fun AppNavigation(navController: NavHostController = rememberNavController()) {
-    val context = LocalContext.current
 
-    // Replaces the screen we came from, so Back never returns to login/splash
-    // while someone is logged in.
-    fun enterApp(profile: UserProfile, popFrom: String) {
-        HotelRepository.start(profile)
-        val destination =
-            if (profile.role == UserRole.HotelOwner) Routes.OWNER_DASHBOARD else Routes.home()
-        navController.navigate(destination) {
-            popUpTo(popFrom) { inclusive = true }
-        }
+    // errors returned by the database checks, shown on the Login and Sign Up screens
+    var loginError by remember { mutableStateOf<String?>(null) }
+    var signUpError by remember { mutableStateOf<String?>(null) }
+
+    // login stays on the back stack so Back returns to it
+    fun goToStartScreen(role: UserRole) {
+        val destination = if (role == UserRole.HotelOwner) Routes.OWNER_DASHBOARD else Routes.HOME
+        navController.navigate(destination)
     }
 
-    // ends the session and clears the whole back stack, so Back exits the app
+    // end the session, then clear the back stack back to a fresh login
     fun logout() {
-        AuthRepository.logout()
-        HotelRepository.stop()
+        HotelRepository.logout()
         navController.navigate(Routes.LOGIN) {
-            popUpTo(navController.graph.id) { inclusive = true }
+            popUpTo(Routes.LOGIN) { inclusive = true }
         }
     }
 
-    NavHost(navController = navController, startDestination = Routes.SPLASH) {
+    NavHost(navController = navController, startDestination = Routes.LOGIN) {
 
-        // decides between login and the right home screen from the saved session
-        composable(Routes.SPLASH) {
-            LaunchedEffect(Unit) {
-                AuthRepository.restoreSession { profile ->
-                    if (profile != null) {
-                        enterApp(profile, Routes.SPLASH)
-                    } else {
-                        navController.navigate(Routes.LOGIN) {
-                            popUpTo(Routes.SPLASH) { inclusive = true }
-                        }
-                    }
-                }
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(ScreenBackground),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = StayBlue)
-            }
-        }
-
+        // ---------- Login / Sign Up ----------
         composable(Routes.LOGIN) {
-            var error by remember { mutableStateOf<String?>(null) }
-            var loading by remember { mutableStateOf(false) }
-
             LoginScreen(
-                errorMessage = error,
-                isLoading = loading,
-                onInputChanged = { error = null },
+                errorMessage = loginError,
+                onInputChange = { loginError = null },
                 onLoginClick = { phone, password, role ->
-                    loading = true
-                    error = null
-                    AuthRepository.login(phone, password, role) { profile, message ->
-                        loading = false
-                        if (profile != null) enterApp(profile, Routes.LOGIN) else error = message
-                    }
+                    // checks the phone number, password and role against the database
+                    val error = HotelRepository.login(phone, password, role)
+                    loginError = error
+                    if (error == null) goToStartScreen(role)
                 },
-                onSignUpClick = { navController.navigate(Routes.SIGN_UP) }
+                onSignUpClick = {
+                    loginError = null
+                    navController.navigate(Routes.SIGN_UP)
+                }
             )
         }
         composable(Routes.SIGN_UP) {
-            var error by remember { mutableStateOf<String?>(null) }
-            var loading by remember { mutableStateOf(false) }
-
             SignUpScreen(
-                errorMessage = error,
-                isLoading = loading,
-                onInputChanged = { error = null },
+                errorMessage = signUpError,
+                onInputChange = { signUpError = null },
                 onSignUpClick = { signUp ->
-                    loading = true
-                    error = null
-                    AuthRepository.signUp(
-                        fullName = signUp.fullName,
-                        phone = signUp.phone,
-                        password = signUp.password,
-                        role = signUp.role,
-                        hotelName = signUp.hotelName,
-                        city = signUp.city
-                    ) { profile, message ->
-                        loading = false
-                        if (profile != null) {
-                            // pops sign up and login, then opens the guest or owner home
-                            enterApp(profile, Routes.LOGIN)
-                            if (profile.role == UserRole.HotelOwner) {
-                                HotelRepository.registerOwnerHotel(profile.hotelName, profile.city)
-                            }
-                        } else {
-                            error = message
-                        }
-                    }
+                    // saves the account (and the hotel, for owners) and logs the user in
+                    val error = HotelRepository.register(signUp)
+                    signUpError = error
+                    if (error == null) goToStartScreen(signUp.role)
                 },
-                onBackClick = { navController.popBackStack() }
+                onBackClick = {
+                    signUpError = null
+                    navController.popBackStack()
+                }
             )
         }
 
-        composable(
-            route = Routes.HOME_ROUTE,
-            arguments = listOf(
-                navArgument("city") { type = NavType.StringType; defaultValue = "" },
-                navArgument("hotelName") { type = NavType.StringType; defaultValue = "" }
-            )
-        ) { backStackEntry ->
-            val cityArg = backStackEntry.arguments?.getString("city") ?: ""
-            val hotelNameArg = backStackEntry.arguments?.getString("hotelName") ?: ""
-            val initialCity = if (cityArg.isNotBlank()) cityArg else "Lilongwe"
-
+        // ---------- Guest flow ----------
+        composable(Routes.HOME) {
             HomeScreen(
-                initialCity = initialCity,
-                initialSearchText = hotelNameArg,
                 onHotelClick = { hotel -> navController.navigate(Routes.roomList(hotel.name)) },
                 onLogoutClick = { logout() }
             )
@@ -220,7 +144,7 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
 
             RoomDetailsScreen(
                 roomNumber = roomNumber,
-                roomType = room?.type ?: "Standard Room",
+                roomType = room?.type.orEmpty(),
                 hasWifi = room?.hasWifi ?: false,
                 hasAirConditioning = room?.hasAirConditioning ?: false,
                 pricePerNight = room?.pricePerNight ?: 0,
@@ -234,62 +158,69 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
             )
         }
         composable(Routes.BOOKING_CONFIRM) {
-            val draft = HotelRepository.draft ?: BookingDraft()
+            // no reservation in progress (for example after the app was restarted): go back
+            val draft = HotelRepository.draft
+            if (draft == null) {
+                LaunchedEffect(Unit) { navController.popBackStack() }
+                return@composable
+            }
             BookingConfirmationScreen(
                 roomNumber = draft.roomNumber,
                 roomType = draft.roomType,
                 hotelName = draft.hotelName,
                 checkIn = draft.checkIn,
                 checkOut = draft.checkOut,
-                guests = draft.guests,
+                guestCount = draft.guests,
+                minGuests = HotelRepository.MIN_GUESTS,
+                maxGuests = HotelRepository.MAX_GUESTS,
                 totalPrice = draft.pricePerNight,
+                onGuestCountChange = { HotelRepository.setGuests(it) },
                 onBackClick = { navController.popBackStack() },
                 onProceedClick = { navController.navigate(Routes.PAYMENT) }
             )
         }
         composable(Routes.PAYMENT) {
-            val draft = HotelRepository.draft ?: BookingDraft()
-            var paying by remember { mutableStateOf(false) }
+            val draft = HotelRepository.draft
+            if (draft == null) {
+                LaunchedEffect(Unit) { navController.popBackStack() }
+                return@composable
+            }
             PaymentScreen(
                 roomNumber = draft.roomNumber,
                 hotelName = draft.hotelName,
                 totalAmount = draft.pricePerNight,
+                upfrontPercent = HotelRepository.upfrontPercent,
+                methods = HotelRepository.paymentMethods,
                 onBackClick = { navController.popBackStack() },
-                onPayNowClick = {
-                    if (!paying) {
-                        paying = true
-                        HotelRepository.confirmBooking { booking, message ->
-                            paying = false
-                            if (booking != null) {
-                                navController.navigate(Routes.BOOKING_SUCCESS)
-                            } else {
-                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-                                // someone else took the room: back to the room list
-                                if (message == ROOM_TAKEN_ERROR) {
-                                    navController.popBackStack(Routes.ROOM_LIST, inclusive = false)
-                                }
-                            }
-                        }
+                onPayNowClick = { method ->
+                    // saves the booking and marks the room as booked in the database
+                    if (HotelRepository.confirmBooking(method.name) != null) {
+                        navController.navigate(Routes.BOOKING_SUCCESS)
                     }
                 }
             )
         }
         composable(Routes.BOOKING_SUCCESS) {
             val booking = HotelRepository.lastBooking
+            if (booking == null) {
+                LaunchedEffect(Unit) { navController.popBackStack(Routes.HOME, inclusive = false) }
+                return@composable
+            }
             BookingSuccessScreen(
-                referenceNumber = booking?.reference ?: "",
-                hotelName = booking?.hotelName ?: "",
-                roomNumber = booking?.roomNumber ?: "",
-                checkIn = booking?.checkIn ?: "",
-                checkOut = booking?.checkOut ?: "",
-                totalPaid = booking?.amountPaid ?: 0,
+                referenceNumber = booking.reference,
+                hotelName = booking.hotelName,
+                roomNumber = booking.roomNumber,
+                checkIn = booking.checkIn,
+                checkOut = booking.checkOut,
+                totalPaid = booking.amountPaid,
                 // pop the booking flow off the back stack
                 onBackToHomeClick = {
-                    navController.popBackStack(Routes.HOME_ROUTE, inclusive = false)
+                    navController.popBackStack(Routes.HOME, inclusive = false)
                 }
             )
         }
 
+        // ---------- Owner flow ----------
         composable(Routes.OWNER_DASHBOARD) {
             val hotel = HotelRepository.ownerHotel()
             OwnerDashboardScreen(
@@ -326,7 +257,7 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                 existingRoomNumbers = HotelRepository.roomsOf(hotel.name).map { it.number }.toSet(),
                 onBackClick = { navController.popBackStack() },
                 onSaveClick = { newRoom ->
-                    val added = HotelRepository.addRoom(
+                    HotelRepository.addRoom(
                         hotelName = hotel.name,
                         room = Room(
                             number = newRoom.roomNumber,
@@ -337,11 +268,7 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                             hasAirConditioning = newRoom.hasAirConditioning
                         )
                     )
-                    if (added) {
-                        navController.popBackStack()
-                    } else {
-                        Toast.makeText(context, ROOM_EXISTS_ERROR, Toast.LENGTH_LONG).show()
-                    }
+                    navController.popBackStack()
                 }
             )
         }

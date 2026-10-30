@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.staysafe.data.PaymentMethodInfo
 import com.example.staysafe.ui.login.HintGray
 import com.example.staysafe.ui.login.ScreenBackground
 import com.example.staysafe.ui.login.StayBlue
@@ -47,24 +48,17 @@ import com.example.staysafe.ui.login.StayBlueDark
 import com.example.staysafe.ui.login.TextGray
 
 private val CardBorder = Color(0xFFD3E2F8)
-private val AirtelRed = Color(0xFFE4002B)
-private val MpambaGreen = Color(0xFF2E9E44)
-
-enum class PaymentMethod(val displayName: String) {
-    AirtelMoney("Airtel Money"),
-    TnmMpamba("TNM Mpamba")
-}
-
 @Composable
 fun PaymentScreen(
-    roomNumber: String = "101",
-    hotelName: String = "Sunset Hotel",
-    totalAmount: Int = 45000,
-    upfrontPercent: Int = 20,
+    roomNumber: String,
+    hotelName: String,
+    totalAmount: Int,
+    upfrontPercent: Int,
+    methods: List<PaymentMethodInfo>,
     onBackClick: () -> Unit = {},
-    onPayNowClick: (PaymentMethod) -> Unit = {}
+    onPayNowClick: (PaymentMethodInfo) -> Unit = {}
 ) {
-    var selectedMethod by remember { mutableStateOf<PaymentMethod?>(null) }
+    var selectedMethod by remember { mutableStateOf<PaymentMethodInfo?>(null) }
     val upfrontAmount = totalAmount * upfrontPercent / 100
 
     Scaffold(containerColor = ScreenBackground) { innerPadding ->
@@ -158,7 +152,7 @@ fun PaymentScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PaymentMethod.entries.forEach { method ->
+                    methods.forEach { method ->
                         PaymentMethodRow(
                             method = method,
                             selected = selectedMethod == method,
@@ -190,7 +184,7 @@ fun PaymentScreen(
 
 @Composable
 private fun PaymentMethodRow(
-    method: PaymentMethod,
+    method: PaymentMethodInfo,
     selected: Boolean,
     onClick: () -> Unit
 ) {
@@ -220,7 +214,7 @@ private fun PaymentMethodRow(
             MethodLogo(method)
             Spacer(modifier = Modifier.width(14.dp))
             Text(
-                text = method.displayName,
+                text = method.name,
                 color = StayBlueDark,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold
@@ -231,20 +225,17 @@ private fun PaymentMethodRow(
 
 // TODO: replace with real logos
 @Composable
-private fun MethodLogo(method: PaymentMethod) {
-    val (color, label) = when (method) {
-        PaymentMethod.AirtelMoney -> AirtelRed to "airtel"
-        PaymentMethod.TnmMpamba -> MpambaGreen to "TNM"
-    }
+private fun MethodLogo(method: PaymentMethodInfo) {
+    // the brand color and short label are stored with the payment method in the database
     Box(
         modifier = Modifier
             .size(40.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(color),
+            .background(Color(android.graphics.Color.parseColor(method.color))),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = label,
+            text = method.shortLabel,
             color = Color.White,
             fontSize = 9.sp,
             fontWeight = FontWeight.Bold
@@ -255,5 +246,14 @@ private fun MethodLogo(method: PaymentMethod) {
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun PaymentScreenPreview() {
-    PaymentScreen()
-}
+    // preview-only placeholder values; the real screen gets its methods and rate from the database
+    PaymentScreen(
+        roomNumber = "A1",
+        hotelName = "Sample Hotel",
+        totalAmount = 1000,
+        upfrontPercent = 10,
+        methods = listOf(
+            PaymentMethodInfo(name = "Sample Pay", shortLabel = "SP", color = "#1565D8")
+        )
+    )
+}

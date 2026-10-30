@@ -56,20 +56,9 @@ private val BookedRed = Color(0xFFD62839)
 private val TabInactiveBg = Color(0xFFE6ECF5)
 private val ImagePlaceholder = Color(0xFFBBD3F5)
 
-private val ownerSampleRooms = listOf(
-    Room("101", "Standard Room", RoomStatus.Vacant),
-    Room("102", "Standard Room", RoomStatus.Vacant),
-    Room("103", "Deluxe Room", RoomStatus.Vacant),
-    Room("104", "Standard Room", RoomStatus.Booked),
-    Room("105", "Standard Room", RoomStatus.Booked),
-    Room("106", "Deluxe Room", RoomStatus.Booked),
-    Room("107", "Standard Room", RoomStatus.Booked),
-    Room("108", "Deluxe Room", RoomStatus.Booked)
-)
-
 @Composable
 fun OwnerRoomListScreen(
-    rooms: List<Room> = ownerSampleRooms,
+    rooms: List<Room>,
     onBackClick: () -> Unit = {},
     onRoomClick: (Room) -> Unit = {}
 ) {
@@ -249,5 +238,11 @@ private fun OwnerStatusChip(status: RoomStatus) {
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun OwnerRoomListScreenPreview() {
-    OwnerRoomListScreen()
-}
+    // preview-only placeholder values; the real screen gets its rooms from the database
+    OwnerRoomListScreen(
+        rooms = listOf(
+            Room("A1", "Sample Type", RoomStatus.Vacant, 1000, hasWifi = true, hasAirConditioning = true),
+            Room("A2", "Sample Type", RoomStatus.Booked, 1000, hasWifi = false, hasAirConditioning = false)
+        )
+    )
+}

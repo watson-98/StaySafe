@@ -44,6 +44,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.staysafe.data.HotelRepository
 import com.example.staysafe.ui.login.HintGray
 import com.example.staysafe.ui.login.ScreenBackground
 import com.example.staysafe.ui.login.StayBlue
@@ -60,30 +61,21 @@ data class NewRoom(
     val hasAirConditioning: Boolean
 )
 
-const val PRICE_ERROR = "Price must be a positive number"
-const val ROOM_EXISTS_ERROR =
-    "A room already exists with the same Room Number, please enter a different room number"
-
-private val defaultRoomTypes = listOf("Standard Room", "Deluxe Room", "Suite")
-
 @Composable
 fun AddRoomScreen(
-    roomTypes: List<String> = defaultRoomTypes,
+    roomTypes: List<String> = HotelRepository.roomTypes,
     existingRoomNumbers: Set<String> = emptySet(),
     onBackClick: () -> Unit = {},
     onSaveClick: (NewRoom) -> Unit = {}
 ) {
     var roomNumber by remember { mutableStateOf("") }
-    var roomType by remember { mutableStateOf(roomTypes.first()) }
+    var roomType by remember { mutableStateOf(roomTypes.firstOrNull().orEmpty()) }
     var price by remember { mutableStateOf("") }
     var hasWifi by remember { mutableStateOf(true) }
     var hasAirConditioning by remember { mutableStateOf(true) }
 
-    var priceError by remember { mutableStateOf<String?>(null) }
-
     val isDuplicate = roomNumber.trim() in existingRoomNumbers
-    // the price is validated when Save Room is tapped
-    val canSave = roomNumber.isNotBlank() && price.isNotBlank()
+    val canSave = roomNumber.isNotBlank() && price.isNotBlank() && !isDuplicate
 
     Scaffold(containerColor = ScreenBackground) { innerPadding ->
         Column(
@@ -127,7 +119,7 @@ fun AddRoomScreen(
                 )
                 if (isDuplicate) {
                     Text(
-                        text = ROOM_EXISTS_ERROR,
+                        text = "Room ${roomNumber.trim()} already exists",
                         color = Color(0xFFD62839),
                         fontSize = 12.sp,
                         modifier = Modifier.padding(top = 6.dp)
@@ -148,21 +140,10 @@ fun AddRoomScreen(
                 FieldLabel("Price per Night (MWK)")
                 FormTextField(
                     value = price,
-                    onValueChange = { input ->
-                        price = input.filter { it.isDigit() }.take(9)
-                        priceError = null
-                    },
+                    onValueChange = { input -> price = input.filter { it.isDigit() } },
                     placeholder = "e.g. 45000",
                     keyboardType = KeyboardType.Number
                 )
-                if (priceError != null) {
-                    Text(
-                        text = priceError!!,
-                        color = Color(0xFFD62839),
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(top = 6.dp)
-                    )
-                }
 
                 Spacer(modifier = Modifier.height(18.dp))
 
@@ -183,21 +164,15 @@ fun AddRoomScreen(
 
             Button(
                 onClick = {
-                    val priceValue = price.toIntOrNull() ?: 0
-                    if (priceValue <= 0) {
-                        priceError = PRICE_ERROR
-                    } else if (!isDuplicate) {
-                        // a duplicate room number already shows its error above
-                        onSaveClick(
-                            NewRoom(
-                                roomNumber = roomNumber.trim(),
-                                roomType = roomType,
-                                pricePerNight = priceValue,
-                                hasWifi = hasWifi,
-                                hasAirConditioning = hasAirConditioning
-                            )
+                    onSaveClick(
+                        NewRoom(
+                            roomNumber = roomNumber.trim(),
+                            roomType = roomType,
+                            pricePerNight = price.toIntOrNull() ?: 0,
+                            hasWifi = hasWifi,
+                            hasAirConditioning = hasAirConditioning
                         )
-                    }
+                    )
                 },
                 enabled = canSave,
                 modifier = Modifier
@@ -338,4 +313,4 @@ private fun FacilityCheckbox(
 @Composable
 private fun AddRoomScreenPreview() {
     AddRoomScreen()
-}
+}

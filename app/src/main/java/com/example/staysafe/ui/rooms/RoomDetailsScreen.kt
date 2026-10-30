@@ -55,11 +55,11 @@ data class RoomFeature(val label: String, val icon: ImageVector)
 
 @Composable
 fun RoomDetailsScreen(
-    roomNumber: String = "101",
-    roomType: String = "Standard Room",
-    hasWifi: Boolean = true,
-    hasAirConditioning: Boolean = true,
-    pricePerNight: Int = 45000,
+    roomNumber: String,
+    roomType: String,
+    hasWifi: Boolean,
+    hasAirConditioning: Boolean,
+    pricePerNight: Int,
     photoCount: Int = 3,
     onBackClick: () -> Unit = {},
     onReserveClick: () -> Unit = {}
@@ -204,5 +204,12 @@ fun RoomDetailsScreen(
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun RoomDetailsScreenPreview() {
-    RoomDetailsScreen()
-}
+    // preview-only placeholder values; the real screen shows the room saved in the database
+    RoomDetailsScreen(
+        roomNumber = "A1",
+        roomType = "Sample Type",
+        hasWifi = true,
+        hasAirConditioning = true,
+        pricePerNight = 1000
+    )
+}

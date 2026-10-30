@@ -46,12 +46,12 @@ private val SuccessGreen = Color(0xFF1E9E4A)
 
 @Composable
 fun BookingSuccessScreen(
-    referenceNumber: String = "#SB28476",
-    hotelName: String = "Sunset Hotel",
-    roomNumber: String = "101",
-    checkIn: String = "24 Sep 2026",
-    checkOut: String = "25 Sep 2026",
-    totalPaid: Int = 9000,
+    referenceNumber: String,
+    hotelName: String,
+    roomNumber: String,
+    checkIn: String,
+    checkOut: String,
+    totalPaid: Int,
     onBackToHomeClick: () -> Unit = {}
 ) {
     // booking is done, so Back goes Home instead of into payment
@@ -166,5 +166,13 @@ private fun SummaryRow(label: String, value: String) {
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun BookingSuccessScreenPreview() {
-    BookingSuccessScreen()
-}
+    // preview-only placeholder values; the real screen shows the booking saved in the database
+    BookingSuccessScreen(
+        referenceNumber = "#REF",
+        hotelName = "Sample Hotel",
+        roomNumber = "A1",
+        checkIn = "01 Jan 2000",
+        checkOut = "02 Jan 2000",
+        totalPaid = 1000
+    )
+}

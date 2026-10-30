@@ -17,9 +17,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Hotel
+import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -48,13 +50,16 @@ private val ImagePlaceholder = Color(0xFFBBD3F5)
 
 @Composable
 fun BookingConfirmationScreen(
-    roomNumber: String = "101",
-    roomType: String = "Standard Room",
-    hotelName: String = "Sunset Hotel",
-    checkIn: String = "24 Sep 2026",
-    checkOut: String = "25 Sep 2026",
-    guests: String = "2 Adults",
-    totalPrice: Int = 45000,
+    roomNumber: String,
+    roomType: String,
+    hotelName: String,
+    checkIn: String,
+    checkOut: String,
+    guestCount: Int,
+    minGuests: Int,
+    maxGuests: Int,
+    totalPrice: Int,
+    onGuestCountChange: (Int) -> Unit,
     priceNote: String = "(per night)",
     onBackClick: () -> Unit = {},
     onProceedClick: () -> Unit = {}
@@ -135,7 +140,7 @@ fun BookingConfirmationScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         DetailRow(Icons.Outlined.CalendarMonth, "Check Out", checkOut)
                         Spacer(modifier = Modifier.height(16.dp))
-                        DetailRow(Icons.Outlined.Group, "Guests", guests)
+                        GuestRow(guestCount, minGuests, maxGuests, onGuestCountChange)
 
                         Spacer(modifier = Modifier.height(16.dp))
                         Divider()
@@ -202,6 +207,35 @@ private fun DetailRow(icon: ImageVector, label: String, value: String) {
     }
 }
 
+// lets the guest choose how many people are staying
+@Composable
+private fun GuestRow(count: Int, min: Int, max: Int, onCountChange: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = Icons.Outlined.Group,
+            contentDescription = null,
+            tint = StayBlueDark,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = "Guests", color = HintGray, fontSize = 12.sp)
+            Text(
+                text = if (count == 1) "1 guest" else "$count guests",
+                color = StayBlueDark,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        IconButton(onClick = { onCountChange(count - 1) }, enabled = count > min) {
+            Icon(Icons.Outlined.Remove, contentDescription = "Fewer guests", tint = StayBlue)
+        }
+        IconButton(onClick = { onCountChange(count + 1) }, enabled = count < max) {
+            Icon(Icons.Outlined.Add, contentDescription = "More guests", tint = StayBlue)
+        }
+    }
+}
+
 // own divider; Material3's differs between versions
 @Composable
 private fun Divider() {
@@ -216,5 +250,17 @@ private fun Divider() {
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun BookingConfirmationScreenPreview() {
-    BookingConfirmationScreen()
+    // preview-only placeholder values; the real screen shows the reservation in progress
+    BookingConfirmationScreen(
+        roomNumber = "A1",
+        roomType = "Sample Type",
+        hotelName = "Sample Hotel",
+        checkIn = "01 Jan 2000",
+        checkOut = "02 Jan 2000",
+        guestCount = 1,
+        minGuests = 1,
+        maxGuests = 10,
+        totalPrice = 1000,
+        onGuestCountChange = {}
+    )
 }

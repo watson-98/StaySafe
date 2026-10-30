@@ -60,27 +60,16 @@ data class Room(
     val number: String,
     val type: String,
     val status: RoomStatus,
-    val pricePerNight: Int = 45000,
-    val hasWifi: Boolean = true,
-    val hasAirConditioning: Boolean = true
-)
-
-private val sampleRooms = listOf(
-    Room("101", "Standard Room", RoomStatus.Vacant),
-    Room("102", "Standard Room", RoomStatus.Vacant),
-    Room("103", "Deluxe Room", RoomStatus.Vacant),
-    Room("104", "Standard Room", RoomStatus.Booked),
-    Room("105", "Standard Room", RoomStatus.Booked),
-    Room("106", "Deluxe Room", RoomStatus.Booked),
-    Room("107", "Standard Room", RoomStatus.Booked),
-    Room("108", "Deluxe Room", RoomStatus.Booked)
+    val pricePerNight: Int,
+    val hasWifi: Boolean,
+    val hasAirConditioning: Boolean
 )
 
 @Composable
 fun RoomListScreen(
-    hotelName: String = "Sunset Hotel",
-    hotelLocation: String = "Lilongwe",
-    rooms: List<Room> = sampleRooms,
+    hotelName: String,
+    hotelLocation: String,
+    rooms: List<Room>,
     onBackClick: () -> Unit = {},
     onRoomClick: (Room) -> Unit = {}
 ) {
@@ -263,5 +252,13 @@ private fun StatusChip(status: RoomStatus) {
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun RoomListScreenPreview() {
-    RoomListScreen()
-}
+    // preview-only placeholder values; the real screen gets its rooms from the database
+    RoomListScreen(
+        hotelName = "Sample Hotel",
+        hotelLocation = "Sample City",
+        rooms = listOf(
+            Room("A1", "Sample Type", RoomStatus.Vacant, 1000, hasWifi = true, hasAirConditioning = false),
+            Room("A2", "Sample Type", RoomStatus.Booked, 1000, hasWifi = false, hasAirConditioning = false)
+        )
+    )
+}

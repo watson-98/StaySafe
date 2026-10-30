@@ -1,46 +1,45 @@
 package com.example.staysafe.data
 
-import android.util.Log
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.example.staysafe.ui.login.SignUpData
 import com.example.staysafe.ui.login.UserRole
 import com.example.staysafe.ui.rooms.Room
 import com.example.staysafe.ui.rooms.RoomStatus
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FirebaseFirestoreException
-import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.firestore.Source
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
 // vacant/booked counts are derived from the room list
 data class Hotel(
-    val name: String = "",
-    val location: String = "",
-    val city: String = ""
+    val name: String,
+    val location: String,
+    val city: String
 )
 
 data class GuestBooking(
-    val hotelName: String = "",
-    val roomNumber: String = "",
-    val checkIn: String = "",
-    val checkOut: String = "",
-    val amountPaid: Int = 0,
-    val reference: String = ""
+    val hotelName: String,
+    val roomNumber: String,
+    val checkIn: String,
+    val checkOut: String,
+    val amountPaid: Int,
+    val reference: String,
+    val guests: Int,
+    val paymentMethod: String
 )
 
-// reservation that hasn't been paid for yet
+// reservation that hasn't been paid for yet; the dates come from the phone's clock
 data class BookingDraft(
-    val hotelName: String = "Sunset Hotel",
-    val roomNumber: String = "101",
-    val roomType: String = "Standard Room",
-    val pricePerNight: Int = 45000,
+    val hotelName: String,
+    val roomNumber: String,
+    val roomType: String,
+    val pricePerNight: Int,
+    val guests: Int,
     val checkIn: String = dateText(daysFromToday = 0),
-    val checkOut: String = dateText(daysFromToday = 1),
-    val guests: String = "2 Adults"
+    val checkOut: String = dateText(daysFromToday = 1)
 )
 
 // Calendar and SimpleDateFormat work on API 24; java.time would need API 26
@@ -50,37 +49,30 @@ private fun dateText(daysFromToday: Int): String {
     return SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(calendar.time)
 }
 
-val availableCities = listOf("Lilongwe", "Blantyre", "Mzuzu", "Zomba")
+private data class StoredRoom(val hotelName: String, val room: Room)
 
-private data class StoredRoom(
-    val hotelName: String = "",
-    val room: Room = Room("", "", RoomStatus.Vacant)
-)
-
-const val ROOM_TAKEN_ERROR = "Sorry, this room has just been booked by someone else."
-
-// Store backed by Firebase Firestore with reactive Compose states.
-// Listeners only run while a user is logged in (start/stop), so the data is
-// never read before login or kept after logout.
+// Screens read the in-memory lists (so Compose updates), and every change is also saved
+// to the SQLite database. Everything here is loaded from the database when the app starts.
 object HotelRepository {
 
-    private const val TAG = "HotelRepository"
-    private const val STANDARD_PRICE = 45000
-    private const val DELUXE_PRICE = 60000
-    private const val UPFRONT_PERCENT = 20
-
-    private val db by lazy { FirebaseFirestore.getInstance() }
+    const val MIN_GUESTS = 1
+    const val MAX_GUESTS = 10
 
     val hotels = mutableStateListOf<Hotel>()
-    val bookings = mutableStateListOf<GuestBooking>()   // logged-in guest only, newest first
+    val bookings = mutableStateListOf<GuestBooking>()   // the logged-in guest's bookings, newest first
     private val rooms = mutableStateListOf<StoredRoom>()
 
-    // false until the first real result for hotels has arrived
-    var hotelsLoaded by mutableStateOf(false)
+    // reference data, loaded from the cities, room_types, payment_methods and settings tables
+    var cities by mutableStateOf<List<String>>(emptyList())
+        private set
+    var roomTypes by mutableStateOf<List<String>>(emptyList())
+        private set
+    var paymentMethods by mutableStateOf<List<PaymentMethodInfo>>(emptyList())
+        private set
+    var upfrontPercent by mutableStateOf(0)
         private set
 
-    // hotel managed by the logged-in owner (empty for guests)
-    var ownerHotelName by mutableStateOf("")
+    var currentUser by mutableStateOf<User?>(null)
         private set
 
     // in-progress reservation and the last paid booking
@@ -89,186 +81,85 @@ object HotelRepository {
     var lastBooking by mutableStateOf<GuestBooking?>(null)
         private set
 
-    private val listeners = mutableListOf<ListenerRegistration>()
-    private var activeUid: String? = null
+    private var db: StaySafeDatabase? = null
 
-    // document ids can't contain "/"
-    private fun hotelDocId(name: String) = name.replace("/", "-")
-    private fun roomDocId(hotelName: String, number: String) = "${hotelDocId(hotelName)}_${number.replace("/", "-")}"
+    private fun database(): StaySafeDatabase =
+        db ?: error("HotelRepository.initialize(context) must be called before use")
 
-    // ---- session ----
+    // Call once at app start (MainActivity.onCreate). Safe to call again.
+    fun initialize(context: Context) {
+        if (db != null) return
+        val database = StaySafeDatabase(context.applicationContext)
+        db = database
 
-    fun start(profile: UserProfile) {
-        ownerHotelName = if (profile.role == UserRole.HotelOwner) profile.hotelName else ""
-        if (activeUid == profile.uid) return   // already listening for this user
+        cities = database.allCities()
+        roomTypes = database.allRoomTypes()
+        paymentMethods = database.allPaymentMethods()
+        upfrontPercent = database.setting("upfront_percent")?.toIntOrNull()
+            ?: error("upfront_percent is missing from the settings table (check assets/seed.sql)")
 
-        stop()
-        activeUid = profile.uid
-        ensureSeeded { }
-        listenToHotels()
-        listenToRooms()
-        listenToBookings(profile.uid)
+        hotels.addAll(database.allHotels())
+        rooms.addAll(database.allRooms().map { (hotelName, room) -> StoredRoom(hotelName, room) })
     }
 
-    fun stop() {
-        listeners.forEach { it.remove() }
-        listeners.clear()
-        hotels.clear()
-        rooms.clear()
+    private fun saveUser(database: StaySafeDatabase, user: User, password: String) {
+        val salt = PasswordHasher.newSalt()
+        database.insertUser(user, PasswordHasher.hash(password, salt), salt)
+    }
+
+    // ---------------- accounts ----------------
+
+    // Returns an error message, or null when the account was created (and the user is logged in)
+    fun register(signUp: SignUpData): String? {
+        val database = database()
+        val phone = signUp.phone.trim()
+        val isOwner = signUp.role == UserRole.HotelOwner
+        val hotelName = signUp.hotelName.trim()
+
+        if (database.findUser(phone) != null) return "This phone number is already registered"
+        if (isOwner && database.hotelExists(hotelName)) return "A hotel named $hotelName already exists"
+
+        val user = User(phone, signUp.fullName.trim(), signUp.role, if (isOwner) hotelName else null)
+        database.transaction {
+            saveUser(database, user, signUp.password)
+            if (isOwner) database.insertHotel(Hotel(hotelName, signUp.city, signUp.city), phone)
+        }
+        if (isOwner) hotels.add(Hotel(hotelName, signUp.city, signUp.city))
+
+        startSession(user)
+        return null
+    }
+
+    // Returns an error message, or null when the login succeeded
+    fun login(phone: String, password: String, role: UserRole): String? {
+        val record = database().findUser(phone.trim())
+        if (record == null || !PasswordHasher.matches(password, record.salt, record.passwordHash)) {
+            return "Invalid phone number or password"
+        }
+        if (record.user.role != role) {
+            val registeredAs = if (record.user.role == UserRole.HotelOwner) "a Hotel Owner" else "a Guest"
+            return "This number is registered as $registeredAs. Choose the other tab."
+        }
+        startSession(record.user)
+        return null
+    }
+
+    fun logout() {
+        currentUser = null
         bookings.clear()
-        hotelsLoaded = false
-        ownerHotelName = ""
         draft = null
         lastBooking = null
-        activeUid = null
     }
 
-    // ---- Firestore listeners ----
-
-    private fun listenToHotels() {
-        listeners += db.collection("hotels").addSnapshotListener { snapshot, error ->
-            if (error != null) {
-                Log.e(TAG, "Error listening to hotels", error)
-                return@addSnapshotListener
-            }
-            if (snapshot == null) return@addSnapshotListener
-            // an empty cached result may just mean the server hasn't answered yet
-            if (snapshot.isEmpty && snapshot.metadata.isFromCache) return@addSnapshotListener
-
-            val fetched = snapshot.documents.mapNotNull { doc ->
-                val name = doc.getString("name") ?: return@mapNotNull null
-                Hotel(
-                    name = name,
-                    location = doc.getString("location") ?: "",
-                    city = doc.getString("city") ?: ""
-                )
-            }.sortedBy { it.name }
-            hotels.clear()
-            hotels.addAll(fetched)
-            hotelsLoaded = true
-        }
+    private fun startSession(user: User) {
+        currentUser = user
+        draft = null
+        lastBooking = null
+        bookings.clear()
+        if (user.role == UserRole.Guest) bookings.addAll(database().bookingsFor(user.phone))
     }
 
-    private fun listenToRooms() {
-        listeners += db.collection("rooms").addSnapshotListener { snapshot, error ->
-            if (error != null) {
-                Log.e(TAG, "Error listening to rooms", error)
-                return@addSnapshotListener
-            }
-            if (snapshot == null) return@addSnapshotListener
-
-            val fetched = snapshot.documents.mapNotNull { doc ->
-                val hotelName = doc.getString("hotelName") ?: return@mapNotNull null
-                val number = doc.getString("number") ?: return@mapNotNull null
-                val status = if (doc.getString("status") == RoomStatus.Booked.name) {
-                    RoomStatus.Booked
-                } else {
-                    RoomStatus.Vacant
-                }
-                StoredRoom(
-                    hotelName = hotelName,
-                    room = Room(
-                        number = number,
-                        type = doc.getString("type") ?: "Standard Room",
-                        status = status,
-                        pricePerNight = (doc.getLong("pricePerNight") ?: STANDARD_PRICE.toLong()).toInt(),
-                        hasWifi = doc.getBoolean("hasWifi") ?: true,
-                        hasAirConditioning = doc.getBoolean("hasAirConditioning") ?: true
-                    )
-                )
-            }.sortedWith(compareBy({ it.hotelName }, { it.room.number.toIntOrNull() ?: Int.MAX_VALUE }, { it.room.number }))
-            rooms.clear()
-            rooms.addAll(fetched)
-        }
-    }
-
-    // only this guest's bookings; sorted here so no composite index is needed
-    private fun listenToBookings(uid: String) {
-        listeners += db.collection("bookings").whereEqualTo("guestId", uid)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e(TAG, "Error listening to bookings", error)
-                    return@addSnapshotListener
-                }
-                if (snapshot == null) return@addSnapshotListener
-
-                val fetched = snapshot.documents.mapNotNull { doc ->
-                    val hotelName = doc.getString("hotelName") ?: return@mapNotNull null
-                    val booking = GuestBooking(
-                        hotelName = hotelName,
-                        roomNumber = doc.getString("roomNumber") ?: "",
-                        checkIn = doc.getString("checkIn") ?: "",
-                        checkOut = doc.getString("checkOut") ?: "",
-                        amountPaid = (doc.getLong("amountPaid") ?: 0L).toInt(),
-                        reference = doc.getString("reference") ?: ""
-                    )
-                    (doc.getLong("timestamp") ?: 0L) to booking
-                }.sortedByDescending { it.first }.map { it.second }
-                bookings.clear()
-                bookings.addAll(fetched)
-            }
-    }
-
-    // ---- first-run sample data ----
-
-    // Seeds sample hotels once, only if the server really has no hotels.
-    // Never overwrites existing data.
-    private fun ensureSeeded(onDone: () -> Unit) {
-        db.collection("hotels").limit(1).get(Source.SERVER)
-            .addOnSuccessListener { result ->
-                if (result.isEmpty) {
-                    seedFirestore().addOnCompleteListener { onDone() }
-                } else {
-                    onDone()
-                }
-            }
-            .addOnFailureListener { e ->
-                Log.e(TAG, "Could not check for sample data", e)
-                onDone()
-            }
-    }
-
-    private fun seedFirestore() = db.batch().also { batch ->
-        val initialData = listOf(
-            Triple("Sunset Hotel", "Lilongwe", Pair(3, 5)),
-            Triple("Capital Hill Hotel", "Lilongwe", Pair(4, 6)),
-            Triple("Lakeview Lodge", "Lilongwe", Pair(2, 3)),
-            Triple("Shire View Lodge", "Blantyre", Pair(5, 4)),
-            Triple("Old Nice Hotel", "Zomba", Pair(2, 6)),
-            Triple("Mango Lodge", "Zomba", Pair(4, 2)),
-            Triple("Grand Palace Hotel", "Mzuzu", Pair(3, 7)),
-            Triple("Lughano Park", "Mzuzu", Pair(1, 4))
-        )
-
-        for ((name, city, counts) in initialData) {
-            val location = if (name == "Lakeview Lodge") "Area 47" else city
-            batch.set(
-                db.collection("hotels").document(hotelDocId(name)),
-                hashMapOf("name" to name, "location" to location, "city" to city)
-            )
-
-            val vacant = counts.first
-            val booked = counts.second
-            for (i in 1..(vacant + booked)) {
-                val type = if (i % 3 == 0) "Deluxe Room" else "Standard Room"
-                val roomNumber = (100 + i).toString()
-                batch.set(
-                    db.collection("rooms").document(roomDocId(name, roomNumber)),
-                    hashMapOf(
-                        "hotelName" to name,
-                        "number" to roomNumber,
-                        "type" to type,
-                        "status" to if (i <= vacant) RoomStatus.Vacant.name else RoomStatus.Booked.name,
-                        "pricePerNight" to if (type == "Deluxe Room") DELUXE_PRICE else STANDARD_PRICE,
-                        "hasWifi" to true,
-                        "hasAirConditioning" to true
-                    )
-                )
-            }
-        }
-    }.commit()
-
-    // ---- queries ----
+    // ---------------- reading ----------------
 
     fun findHotel(name: String): Hotel? = hotels.firstOrNull { it.name == name }
 
@@ -281,110 +172,66 @@ object HotelRepository {
     fun bookedCount(hotelName: String): Int =
         rooms.count { it.hotelName == hotelName && it.room.status == RoomStatus.Booked }
 
-    // falls back to the owner's sign-up details while hotels are still loading
-    fun ownerHotel(): Hotel {
-        findHotel(ownerHotelName)?.let { return it }
-        val city = AuthRepository.currentUser?.city ?: ""
-        return Hotel(name = ownerHotelName, location = city, city = city)
-    }
+    // the hotel managed by the logged-in owner (empty if nobody is logged in)
+    fun ownerHotel(): Hotel =
+        currentUser?.hotelName?.let { findHotel(it) } ?: Hotel(name = "", location = "", city = "")
 
-    // ---- writes ----
-
-    // creates the owner's hotel unless it already exists (e.g. a sample hotel)
-    fun registerOwnerHotel(name: String, city: String) {
-        ensureSeeded {
-            val ref = db.collection("hotels").document(hotelDocId(name))
-            ref.get()
-                .addOnSuccessListener { doc ->
-                    if (!doc.exists()) {
-                        ref.set(hashMapOf("name" to name, "location" to city, "city" to city))
-                    }
-                }
-                .addOnFailureListener { Log.e(TAG, "Could not register hotel", it) }
-        }
-    }
+    // ---------------- owner actions ----------------
 
     // returns false if the room number already exists
     fun addRoom(hotelName: String, room: Room): Boolean {
-        if (rooms.any { it.hotelName == hotelName && it.room.number == room.number }) return false
-
-        db.collection("rooms").document(roomDocId(hotelName, room.number)).set(
-            hashMapOf(
-                "hotelName" to hotelName,
-                "number" to room.number,
-                "type" to room.type,
-                "status" to room.status.name,
-                "pricePerNight" to room.pricePerNight,
-                "hasWifi" to room.hasWifi,
-                "hasAirConditioning" to room.hasAirConditioning
-            )
-        ).addOnFailureListener { Log.e(TAG, "Could not add room", it) }
+        if (!database().insertRoom(hotelName, room)) return false
+        rooms.add(StoredRoom(hotelName, room))
         return true
     }
+
+    // ---------------- guest booking flow ----------------
 
     fun startBooking(hotelName: String, room: Room) {
         draft = BookingDraft(
             hotelName = hotelName,
             roomNumber = room.number,
             roomType = room.type,
-            pricePerNight = room.pricePerNight
+            pricePerNight = room.pricePerNight,
+            guests = MIN_GUESTS
         )
     }
 
-    // Marks the room as booked and saves the booking in one transaction, so two
-    // guests can't book the same room. onResult gets the booking or an error message.
-    fun confirmBooking(onResult: (GuestBooking?, String?) -> Unit) {
-        val uid = activeUid
-        if (uid == null) {
-            onResult(null, "Please log in again.")
-            return
-        }
-        val d = draft ?: BookingDraft()
+    fun setGuests(count: Int) {
+        draft = draft?.copy(guests = count.coerceIn(MIN_GUESTS, MAX_GUESTS))
+    }
+
+    // Saves the booking and marks the room as booked; null if there is no reservation in progress
+    fun confirmBooking(paymentMethod: String): GuestBooking? {
+        val database = database()
+        val d = draft ?: return null
         val booking = GuestBooking(
             hotelName = d.hotelName,
             roomNumber = d.roomNumber,
             checkIn = d.checkIn,
             checkOut = d.checkOut,
-            amountPaid = d.pricePerNight * UPFRONT_PERCENT / 100,
-            reference = "#SB" + (10000..99999).random()
+            amountPaid = d.pricePerNight * upfrontPercent / 100,
+            reference = "#SB" + (10000..99999).random(),
+            guests = d.guests,
+            paymentMethod = paymentMethod
         )
 
-        val roomRef = db.collection("rooms").document(roomDocId(d.hotelName, d.roomNumber))
-        val bookingRef = db.collection("bookings").document()
-        val bookingMap = hashMapOf(
-            "guestId" to uid,
-            "hotelName" to booking.hotelName,
-            "roomNumber" to booking.roomNumber,
-            "checkIn" to booking.checkIn,
-            "checkOut" to booking.checkOut,
-            "amountPaid" to booking.amountPaid,
-            "reference" to booking.reference,
-            "timestamp" to System.currentTimeMillis()
-        )
-
-        db.runTransaction { transaction ->
-            val roomSnapshot = transaction.get(roomRef)
-            if (roomSnapshot.getString("status") == RoomStatus.Booked.name) {
-                throw FirebaseFirestoreException(
-                    ROOM_TAKEN_ERROR,
-                    FirebaseFirestoreException.Code.ABORTED
-                )
-            }
-            transaction.update(roomRef, "status", RoomStatus.Booked.name)
-            transaction.set(bookingRef, bookingMap)
-            null
-        }.addOnSuccessListener {
-            lastBooking = booking
-            onResult(booking, null)
-        }.addOnFailureListener { e ->
-            Log.e(TAG, "Booking failed", e)
-            val taken = e is FirebaseFirestoreException &&
-                    e.code == FirebaseFirestoreException.Code.ABORTED
-            onResult(
-                null,
-                if (taken) ROOM_TAKEN_ERROR
-                else "Could not complete the booking. Check your connection and try again."
-            )
+        // the booking and the room's new status are saved together
+        database.transaction {
+            database.insertBooking(currentUser?.phone.orEmpty(), booking)
+            database.updateRoomStatus(d.hotelName, d.roomNumber, RoomStatus.Booked)
         }
+
+        val index = rooms.indexOfFirst {
+            it.hotelName == d.hotelName && it.room.number == d.roomNumber
+        }
+        if (index >= 0) {
+            val stored = rooms[index]
+            rooms[index] = stored.copy(room = stored.room.copy(status = RoomStatus.Booked))
+        }
+
+        bookings.add(0, booking)
+        lastBooking = booking
+        return booking
     }
 }

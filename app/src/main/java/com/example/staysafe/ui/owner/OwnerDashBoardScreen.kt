@@ -62,10 +62,10 @@ private val BookedRed = Color(0xFFD62839)
 
 @Composable
 fun OwnerDashboardScreen(
-    hotelName: String = "Sunset Hotel",
-    location: String = "Lilongwe",
-    vacantRooms: Int = 3,
-    bookedRooms: Int = 5,
+    hotelName: String,
+    location: String,
+    vacantRooms: Int,
+    bookedRooms: Int,
     onProfileIconClick: () -> Unit = {},
     onRoomsClick: () -> Unit = {},
     onAddRoomClick: () -> Unit = {},
@@ -324,5 +324,11 @@ private fun MenuDivider() {
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun OwnerDashboardScreenPreview() {
-    OwnerDashboardScreen()
-}
+    // preview-only placeholder values; the real screen shows the owner's hotel from the database
+    OwnerDashboardScreen(
+        hotelName = "Sample Hotel",
+        location = "Sample City",
+        vacantRooms = 1,
+        bookedRooms = 1
+    )
+}
