@@ -25,9 +25,6 @@ data class UserProfile(
 const val LOGIN_ERROR = "Password or phone number incorrect"
 const val MIN_PASSWORD_LENGTH = 6
 
-// Firebase Auth handles the password; the phone number is turned into a
-// synthetic email address. The role is part of it so the same phone number
-// can have one guest account and one hotel owner account.
 object AuthRepository {
 
     private const val TAG = "AuthRepository"
@@ -39,7 +36,6 @@ object AuthRepository {
     private val auth by lazy { FirebaseAuth.getInstance() }
     private val db by lazy { FirebaseFirestore.getInstance() }
 
-    // null when nobody is logged in
     var currentUser by mutableStateOf<UserProfile?>(null)
         private set
 
@@ -48,7 +44,6 @@ object AuthRepository {
         return "${phone.trim()}.$suffix@$EMAIL_DOMAIN"
     }
 
-    // onResult gets either the profile or an error message to show
     fun signUp(
         fullName: String,
         phone: String,

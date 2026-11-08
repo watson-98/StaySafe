@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
@@ -53,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -80,6 +83,8 @@ fun HomeScreen(
     cities: List<String> = HotelRepository.cities,
     initialCity: String = cities.firstOrNull().orEmpty(),
     bookings: List<GuestBooking> = HotelRepository.bookings,
+    userName: String = HotelRepository.currentUser?.fullName.orEmpty(),
+    userPhone: String = HotelRepository.currentUser?.phone.orEmpty(),
     onHotelClick: (Hotel) -> Unit = {},
     onProfileClick: () -> Unit = {},
     onLogoutClick: () -> Unit = {}
@@ -92,7 +97,6 @@ fun HomeScreen(
     // Back on Bookings/Profile returns to the Home tab
     BackHandler(enabled = selectedTab != 0) { selectedTab = 0 }
 
-    // totals are summed over the hotels in the selected city
     val hotelsInCity = hotels.filter { it.city == selectedCity }
     val vacantTotal = hotelsInCity.sumOf { HotelRepository.vacantCount(it.name) }
     val bookedTotal = hotelsInCity.sumOf { HotelRepository.bookedCount(it.name) }
@@ -128,7 +132,13 @@ fun HomeScreen(
                 }
             )
             1 -> BookingsTab(innerPadding = innerPadding, bookings = bookings)
-            else -> ProfileTab(innerPadding = innerPadding, onLogoutClick = onLogoutClick)
+            else -> ProfileTab(
+                innerPadding = innerPadding,
+                fullName = userName,
+                phone = userPhone,
+                bookingCount = bookings.size,
+                onLogoutClick = onLogoutClick
+            )
         }
     }
 }
@@ -150,7 +160,8 @@ private fun HomeTab(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(innerPadding),
+            .padding(innerPadding)
+            .testTag("home_list"),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -191,7 +202,8 @@ private fun HomeTab(
                 onValueChange = onSearchTextChange,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(56.dp)
+                    .testTag("search_field"),
                 singleLine = true,
                 shape = RoundedCornerShape(10.dp),
                 placeholder = { Text("Search hotels...", color = HintGray, fontSize = 14.sp) },
@@ -236,7 +248,11 @@ private fun HomeTab(
         item { SectionTitle("Nearby Hotels") }
         if (hotels.isEmpty()) {
             item {
-                Text(text = "No hotels found", color = HintGray, fontSize = 13.sp)
+                Text(
+                    text = if (searchText.isEmpty()) "No hotels found" else "No hotels match that name",
+                    color = HintGray,
+                    fontSize = 13.sp
+                )
             }
         }
         items(hotels) { hotel ->
@@ -262,6 +278,7 @@ private fun CitySelector(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
+                .testTag("city_selector")
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 14.dp),
@@ -294,6 +311,7 @@ private fun CitySelector(
         ) {
             cities.forEach { cityName ->
                 DropdownMenuItem(
+                    modifier = Modifier.testTag("city_option_$cityName"),
                     text = {
                         Text(
                             text = cityName,
@@ -352,7 +370,8 @@ private fun BookingsTab(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(innerPadding),
+            .padding(innerPadding)
+            .testTag("bookings_list"),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -441,34 +460,52 @@ private fun BookingCard(booking: GuestBooking) {
 }
 
 @Composable
-private fun ProfileTab(innerPadding: PaddingValues, onLogoutClick: () -> Unit) {
+private fun ProfileTab(
+    innerPadding: PaddingValues,
+    fullName: String,
+    phone: String,
+    bookingCount: Int,
+    onLogoutClick: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(innerPadding)
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
             imageVector = Icons.Outlined.AccountCircle,
             contentDescription = null,
             tint = StayBlue,
-            modifier = Modifier.size(72.dp)
+            modifier = Modifier.size(88.dp)
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Profile",
+            text = fullName,
             color = StayBlueDark,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold
         )
-        Text(
-            text = "Your profile details will appear here.",
-            color = HintGray,
-            fontSize = 13.sp,
-            textAlign = TextAlign.Center
-        )
+        Text(text = "Guest", color = HintGray, fontSize = 13.sp)
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, CardBorder),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                ProfileDetail(label = "Full Name", value = fullName)
+                ProfileDivider()
+                ProfileDetail(label = "Phone Number", value = phone)
+                ProfileDivider()
+                ProfileDetail(label = "Bookings", value = bookingCount.toString())
+            }
+        }
 
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -494,6 +531,30 @@ private fun ProfileTab(innerPadding: PaddingValues, onLogoutClick: () -> Unit) {
             )
         }
     }
+}
+
+@Composable
+private fun ProfileDetail(label: String, value: String) {
+    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+        Text(text = label, color = HintGray, fontSize = 12.sp)
+        Text(
+            text = value,
+            color = TextGray,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun ProfileDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .height(1.dp)
+            .background(CardBorder)
+    )
 }
 
 @Composable
@@ -549,13 +610,13 @@ private fun HotelRow(hotel: Hotel, onClick: () -> Unit) {
         shape = RoundedCornerShape(12.dp),
         color = Color.White,
         border = BorderStroke(1.dp, CardBorder),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().testTag("hotel_row_${hotel.name}")
     ) {
         Row(
             modifier = Modifier.padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // TODO: replace with a real photo
+            // To be replaced with real photos
             Box(
                 modifier = Modifier
                     .size(width = 72.dp, height = 56.dp)

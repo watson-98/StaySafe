@@ -54,7 +54,7 @@ fun BookingSuccessScreen(
     totalPaid: Int,
     onBackToHomeClick: () -> Unit = {}
 ) {
-    // booking is done, so Back goes Home instead of into payment
+    // go to home after booking room
     BackHandler { onBackToHomeClick() }
 
     Scaffold(containerColor = ScreenBackground) { innerPadding ->
@@ -166,7 +166,6 @@ private fun SummaryRow(label: String, value: String) {
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun BookingSuccessScreenPreview() {
-    // preview-only placeholder values; the real screen shows the booking saved in the database
     BookingSuccessScreen(
         referenceNumber = "#REF",
         hotelName = "Sample Hotel",

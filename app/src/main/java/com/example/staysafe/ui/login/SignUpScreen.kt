@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -56,7 +57,6 @@ import com.example.staysafe.data.HotelRepository
 private val SignUpFieldBackground = Color(0xFFEAF2FF)
 private val SignUpFieldBorder = Color(0xFFD3E2F8)
 
-// hotelName and city are only set for hotel owners
 data class SignUpData(
     val fullName: String,
     val phone: String,
@@ -136,6 +136,7 @@ fun SignUpScreen(
                 value = fullName,
                 onValueChange = { fullName = it },
                 placeholder = "Full Name",
+                modifier = Modifier.testTag("signup_name"),
                 leadingIcon = Icons.Outlined.Person,
                 keyboardType = KeyboardType.Text
             )
@@ -149,6 +150,7 @@ fun SignUpScreen(
                     onInputChange()
                 },
                 placeholder = "Phone Number",
+                modifier = Modifier.testTag("signup_phone"),
                 leadingIcon = Icons.Outlined.Phone,
                 keyboardType = KeyboardType.Phone
             )
@@ -171,6 +173,7 @@ fun SignUpScreen(
                         onInputChange()
                     },
                     placeholder = "Hotel Name",
+                    modifier = Modifier.testTag("signup_hotel"),
                     leadingIcon = Icons.Outlined.Hotel,
                     keyboardType = KeyboardType.Text
                 )
@@ -190,6 +193,7 @@ fun SignUpScreen(
                 value = password,
                 onValueChange = { password = it },
                 placeholder = "Password",
+                modifier = Modifier.testTag("signup_password"),
                 leadingIcon = Icons.Outlined.Lock,
                 keyboardType = KeyboardType.Password,
                 visualTransformation = if (passwordVisible) VisualTransformation.None
@@ -212,6 +216,7 @@ fun SignUpScreen(
                 value = confirmPassword,
                 onValueChange = { confirmPassword = it },
                 placeholder = "Confirm Password",
+                modifier = Modifier.testTag("signup_confirm"),
                 leadingIcon = Icons.Outlined.Lock,
                 keyboardType = KeyboardType.Password,
                 visualTransformation = if (confirmPasswordVisible) VisualTransformation.None
@@ -312,6 +317,7 @@ private fun CityDropdown(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
+                .testTag("signup_city")
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -344,6 +350,7 @@ private fun CityDropdown(
         ) {
             cities.forEach { cityName ->
                 DropdownMenuItem(
+                    modifier = Modifier.testTag("signup_city_option_$cityName"),
                     text = {
                         Text(
                             text = cityName,

@@ -1,6 +1,7 @@
 package com.example.staysafe.data
 
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -13,7 +14,6 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-// vacant/booked counts are derived from the room list
 data class Hotel(
     val name: String,
     val location: String,
@@ -31,7 +31,7 @@ data class GuestBooking(
     val paymentMethod: String
 )
 
-// reservation that hasn't been paid for yet; the dates come from the phone's clock
+// reservation that hasn't been paid for yet
 data class BookingDraft(
     val hotelName: String,
     val roomNumber: String,
@@ -42,7 +42,7 @@ data class BookingDraft(
     val checkOut: String = dateText(daysFromToday = 1)
 )
 
-// Calendar and SimpleDateFormat work on API 24; java.time would need API 26
+// Calendar and SimpleDateFormat
 private fun dateText(daysFromToday: Int): String {
     val calendar = Calendar.getInstance()
     calendar.add(Calendar.DAY_OF_YEAR, daysFromToday)
@@ -51,8 +51,6 @@ private fun dateText(daysFromToday: Int): String {
 
 private data class StoredRoom(val hotelName: String, val room: Room)
 
-// Screens read the in-memory lists (so Compose updates), and every change is also saved
-// to the SQLite database. Everything here is loaded from the database when the app starts.
 object HotelRepository {
 
     const val MIN_GUESTS = 1
@@ -61,8 +59,6 @@ object HotelRepository {
     val hotels = mutableStateListOf<Hotel>()
     val bookings = mutableStateListOf<GuestBooking>()   // the logged-in guest's bookings, newest first
     private val rooms = mutableStateListOf<StoredRoom>()
-
-    // reference data, loaded from the cities, room_types, payment_methods and settings tables
     var cities by mutableStateOf<List<String>>(emptyList())
         private set
     var roomTypes by mutableStateOf<List<String>>(emptyList())
@@ -75,21 +71,26 @@ object HotelRepository {
     var currentUser by mutableStateOf<User?>(null)
         private set
 
-    // in-progress reservation and the last paid booking
     var draft by mutableStateOf<BookingDraft?>(null)
         private set
     var lastBooking by mutableStateOf<GuestBooking?>(null)
         private set
 
     private var db: StaySafeDatabase? = null
+    private var isTestMode = false
 
     private fun database(): StaySafeDatabase =
         db ?: error("HotelRepository.initialize(context) must be called before use")
 
     // Call once at app start (MainActivity.onCreate). Safe to call again.
-    fun initialize(context: Context) {
-        if (db != null) return
-        val database = StaySafeDatabase(context.applicationContext)
+    fun initialize(context: Context, testMode: Boolean = false) {
+        if (db != null && isTestMode == testMode) return
+        db?.close()
+        db = null
+        isTestMode = testMode
+
+        val dbName = if (testMode) StaySafeDatabase.TEST_NAME else StaySafeDatabase.NAME
+        val database = StaySafeDatabase(context.applicationContext, dbName)
         db = database
 
         cities = database.allCities()
@@ -98,8 +99,23 @@ object HotelRepository {
         upfrontPercent = database.setting("upfront_percent")?.toIntOrNull()
             ?: error("upfront_percent is missing from the settings table (check assets/seed.sql)")
 
+        hotels.clear()
+        rooms.clear()
         hotels.addAll(database.allHotels())
         rooms.addAll(database.allRooms().map { (hotelName, room) -> StoredRoom(hotelName, room) })
+    }
+
+    // Used by the automated tests: deletes the isolated test database file, leaving production user accounts completely untouched
+    @VisibleForTesting
+    fun resetForTests(context: Context) {
+        db?.close()
+        db = null
+        isTestMode = true
+        context.applicationContext.deleteDatabase(StaySafeDatabase.TEST_NAME)
+        hotels.clear()
+        rooms.clear()
+        logout()
+        initialize(context, testMode = true)
     }
 
     private fun saveUser(database: StaySafeDatabase, user: User, password: String) {
@@ -107,9 +123,7 @@ object HotelRepository {
         database.insertUser(user, PasswordHasher.hash(password, salt), salt)
     }
 
-    // ---------------- accounts ----------------
-
-    // Returns an error message, or null when the account was created (and the user is logged in)
+    // accounts
     fun register(signUp: SignUpData): String? {
         val database = database()
         val phone = signUp.phone.trim()
@@ -129,12 +143,10 @@ object HotelRepository {
         startSession(user)
         return null
     }
-
-    // Returns an error message, or null when the login succeeded
     fun login(phone: String, password: String, role: UserRole): String? {
         val record = database().findUser(phone.trim())
         if (record == null || !PasswordHasher.matches(password, record.salt, record.passwordHash)) {
-            return "Invalid phone number or password"
+            return "Phone number or password is incorrect"
         }
         if (record.user.role != role) {
             val registeredAs = if (record.user.role == UserRole.HotelOwner) "a Hotel Owner" else "a Guest"
@@ -159,7 +171,7 @@ object HotelRepository {
         if (user.role == UserRole.Guest) bookings.addAll(database().bookingsFor(user.phone))
     }
 
-    // ---------------- reading ----------------
+    // reading
 
     fun findHotel(name: String): Hotel? = hotels.firstOrNull { it.name == name }
 
@@ -172,11 +184,8 @@ object HotelRepository {
     fun bookedCount(hotelName: String): Int =
         rooms.count { it.hotelName == hotelName && it.room.status == RoomStatus.Booked }
 
-    // the hotel managed by the logged-in owner (empty if nobody is logged in)
     fun ownerHotel(): Hotel =
         currentUser?.hotelName?.let { findHotel(it) } ?: Hotel(name = "", location = "", city = "")
-
-    // ---------------- owner actions ----------------
 
     // returns false if the room number already exists
     fun addRoom(hotelName: String, room: Room): Boolean {
@@ -185,7 +194,7 @@ object HotelRepository {
         return true
     }
 
-    // ---------------- guest booking flow ----------------
+    //  guest booking flow
 
     fun startBooking(hotelName: String, room: Room) {
         draft = BookingDraft(
@@ -201,7 +210,7 @@ object HotelRepository {
         draft = draft?.copy(guests = count.coerceIn(MIN_GUESTS, MAX_GUESTS))
     }
 
-    // Saves the booking and marks the room as booked; null if there is no reservation in progress
+    // Save the booking and mark the room as booked
     fun confirmBooking(paymentMethod: String): GuestBooking? {
         val database = database()
         val d = draft ?: return null

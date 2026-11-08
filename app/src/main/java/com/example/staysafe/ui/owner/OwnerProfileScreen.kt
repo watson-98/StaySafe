@@ -161,6 +161,5 @@ private fun DetailLine(label: String, value: String) {
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun OwnerProfileScreenPreview() {
-    // preview-only placeholder values; the real screen shows the owner's hotel from the database
     OwnerProfileScreen(hotelName = "Sample Hotel", location = "Sample City")
 }

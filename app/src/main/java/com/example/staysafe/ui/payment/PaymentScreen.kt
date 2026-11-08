@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -203,6 +204,7 @@ private fun PaymentMethodRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             RadioButton(
+                modifier = Modifier.testTag("radio_${method.name}"),
                 selected = selected,
                 onClick = onClick,
                 colors = RadioButtonDefaults.colors(
@@ -223,10 +225,9 @@ private fun PaymentMethodRow(
     }
 }
 
-// TODO: replace with real logos
+// to be replaced with a logo later
 @Composable
 private fun MethodLogo(method: PaymentMethodInfo) {
-    // the brand color and short label are stored with the payment method in the database
     Box(
         modifier = Modifier
             .size(40.dp)
@@ -246,7 +247,6 @@ private fun MethodLogo(method: PaymentMethodInfo) {
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun PaymentScreenPreview() {
-    // preview-only placeholder values; the real screen gets its methods and rate from the database
     PaymentScreen(
         roomNumber = "A1",
         hotelName = "Sample Hotel",

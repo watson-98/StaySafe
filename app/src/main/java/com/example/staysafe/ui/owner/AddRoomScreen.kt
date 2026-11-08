@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -75,7 +76,9 @@ fun AddRoomScreen(
     var hasAirConditioning by remember { mutableStateOf(true) }
 
     val isDuplicate = roomNumber.trim() in existingRoomNumbers
-    val canSave = roomNumber.isNotBlank() && price.isNotBlank() && !isDuplicate
+    val priceValue = price.toIntOrNull()
+    val priceInvalid = price.isNotEmpty() && (priceValue == null || priceValue <= 0)
+    val canSave = roomNumber.isNotBlank() && price.isNotBlank() && !isDuplicate && !priceInvalid
 
     Scaffold(containerColor = ScreenBackground) { innerPadding ->
         Column(
@@ -115,11 +118,12 @@ fun AddRoomScreen(
                     value = roomNumber,
                     onValueChange = { roomNumber = it },
                     placeholder = "e.g. 104",
-                    keyboardType = KeyboardType.Text
+                    keyboardType = KeyboardType.Text,
+                    tag = "addroom_number"
                 )
                 if (isDuplicate) {
                     Text(
-                        text = "Room ${roomNumber.trim()} already exists",
+                        text = "A room already exists with the same Room Number, please enter a different room number",
                         color = Color(0xFFD62839),
                         fontSize = 12.sp,
                         modifier = Modifier.padding(top = 6.dp)
@@ -142,8 +146,17 @@ fun AddRoomScreen(
                     value = price,
                     onValueChange = { input -> price = input.filter { it.isDigit() } },
                     placeholder = "e.g. 45000",
-                    keyboardType = KeyboardType.Number
+                    keyboardType = KeyboardType.Number,
+                    tag = "addroom_price"
                 )
+                if (priceInvalid) {
+                    Text(
+                        text = "Price must be a positive number",
+                        color = Color(0xFFD62839),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(18.dp))
 
@@ -208,14 +221,16 @@ private fun FormTextField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
-    keyboardType: KeyboardType
+    keyboardType: KeyboardType,
+    tag: String
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp),
+            .height(56.dp)
+            .testTag(tag),
         singleLine = true,
         shape = RoundedCornerShape(10.dp),
         placeholder = { Text(text = placeholder, color = HintGray, fontSize = 14.sp) },
@@ -247,6 +262,7 @@ private fun RoomTypeDropdown(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
+                .testTag("room_type_field")
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -273,6 +289,7 @@ private fun RoomTypeDropdown(
         ) {
             options.forEach { option ->
                 DropdownMenuItem(
+                    modifier = Modifier.testTag("room_type_option_$option"),
                     text = { Text(option, color = StayBlueDark, fontSize = 14.sp) },
                     onClick = {
                         onSelected(option)

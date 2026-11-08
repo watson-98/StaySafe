@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -90,7 +91,7 @@ fun LoginScreen(
         ) {
             Spacer(modifier = Modifier.height(72.dp))
 
-            // TODO: use the StaySafe logo drawable
+            // to be replaced with a logo
             Icon(
                 imageVector = Icons.Outlined.Hotel,
                 contentDescription = "StaySafe logo",
@@ -126,6 +127,7 @@ fun LoginScreen(
                     onInputChange()
                 },
                 placeholder = "Phone Number",
+                modifier = Modifier.testTag("login_phone"),
                 leadingIcon = Icons.Outlined.Person,
                 keyboardType = KeyboardType.Phone
             )
@@ -147,6 +149,7 @@ fun LoginScreen(
                     onInputChange()
                 },
                 placeholder = "Password",
+                modifier = Modifier.testTag("login_password"),
                 leadingIcon = Icons.Outlined.Lock,
                 keyboardType = KeyboardType.Password,
                 visualTransformation = if (passwordVisible) VisualTransformation.None

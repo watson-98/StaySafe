@@ -64,7 +64,6 @@ fun RoomDetailsScreen(
     onBackClick: () -> Unit = {},
     onReserveClick: () -> Unit = {}
 ) {
-    // WiFi and AC are listed only if the room has them
     val features = buildList {
         add(RoomFeature("1 Bed", Icons.Outlined.Hotel))
         if (hasWifi) add(RoomFeature("Free WiFi", Icons.Outlined.Wifi))
@@ -84,7 +83,6 @@ fun RoomDetailsScreen(
                     .fillMaxWidth()
                     .height(260.dp)
             ) {
-                // TODO: replace with real photos
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize()
@@ -204,7 +202,6 @@ fun RoomDetailsScreen(
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun RoomDetailsScreenPreview() {
-    // preview-only placeholder values; the real screen shows the room saved in the database
     RoomDetailsScreen(
         roomNumber = "A1",
         roomType = "Sample Type",

@@ -44,7 +44,15 @@ object PasswordHasher {
         MessageDigest.isEqual(hash(password, salt).toByteArray(), expectedHash.toByteArray())
 }
 
-class StaySafeDatabase(private val context: Context) : SQLiteOpenHelper(context, "staysafe.db", null, 2) {
+class StaySafeDatabase(
+    private val context: Context,
+    name: String = NAME
+) : SQLiteOpenHelper(context, name, null, 2) {
+
+    companion object {
+        const val NAME = "staysafe.db"
+        const val TEST_NAME = "staysafe_test.db"
+    }
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -105,6 +113,7 @@ class StaySafeDatabase(private val context: Context) : SQLiteOpenHelper(context,
         runSeedScript(db)
     }
 
+    // Fills the reference tables from assets/seed.sql
     private fun runSeedScript(db: SQLiteDatabase) {
         val script = try {
             context.assets.open("seed.sql").bufferedReader().use { it.readText() }
@@ -119,6 +128,7 @@ class StaySafeDatabase(private val context: Context) : SQLiteOpenHelper(context,
             .filter { it.isNotEmpty() }
             .forEach { db.execSQL(it) }
     }
+
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         db.execSQL("DROP TABLE IF EXISTS settings")
         db.execSQL("DROP TABLE IF EXISTS payment_methods")
@@ -131,7 +141,6 @@ class StaySafeDatabase(private val context: Context) : SQLiteOpenHelper(context,
         onCreate(db)
     }
 
-    // Runs several writes as one unit: either all of them are saved or none
     fun <T> transaction(block: () -> T): T {
         val db = writableDatabase
         db.beginTransaction()
@@ -176,8 +185,7 @@ class StaySafeDatabase(private val context: Context) : SQLiteOpenHelper(context,
         writableDatabase.insertOrThrow("users", null, values)
     }
 
-    //  reference data
-
+    // reference data
     private fun names(sql: String): List<String> {
         val list = mutableListOf<String>()
         readableDatabase.rawQuery(sql, null).use { c -> while (c.moveToNext()) list.add(c.getString(0)) }
@@ -203,7 +211,7 @@ class StaySafeDatabase(private val context: Context) : SQLiteOpenHelper(context,
             if (it.moveToFirst()) it.getString(0) else null
         }
 
-    // hotels
+    //  hotels
 
     fun hotelExists(name: String): Boolean =
         readableDatabase.rawQuery("SELECT 1 FROM hotels WHERE name = ?", arrayOf(name)).use { it.moveToFirst() }
@@ -228,6 +236,7 @@ class StaySafeDatabase(private val context: Context) : SQLiteOpenHelper(context,
         writableDatabase.insertOrThrow("hotels", null, values)
     }
 
+    // rooms
 
     fun allRooms(): List<Pair<String, Room>> {
         val rooms = mutableListOf<Pair<String, Room>>()
@@ -273,6 +282,7 @@ class StaySafeDatabase(private val context: Context) : SQLiteOpenHelper(context,
         )
     }
 
+    //  bookings
 
     fun insertBooking(guestPhone: String, booking: GuestBooking) {
         val values = ContentValues().apply {
@@ -288,6 +298,7 @@ class StaySafeDatabase(private val context: Context) : SQLiteOpenHelper(context,
         }
         writableDatabase.insertOrThrow("bookings", null, values)
     }
+
 
     fun bookingsFor(guestPhone: String): List<GuestBooking> {
         val bookings = mutableListOf<GuestBooking>()

@@ -105,7 +105,7 @@ fun BookingConfirmationScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            // TODO: replace with a real photo
+                           // to be replaced with real photos later
                             Box(
                                 modifier = Modifier
                                     .size(width = 76.dp, height = 68.dp)
@@ -207,7 +207,6 @@ private fun DetailRow(icon: ImageVector, label: String, value: String) {
     }
 }
 
-// lets the guest choose how many people are staying
 @Composable
 private fun GuestRow(count: Int, min: Int, max: Int, onCountChange: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -236,7 +235,6 @@ private fun GuestRow(count: Int, min: Int, max: Int, onCountChange: (Int) -> Uni
     }
 }
 
-// own divider; Material3's differs between versions
 @Composable
 private fun Divider() {
     Box(
@@ -250,7 +248,6 @@ private fun Divider() {
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun BookingConfirmationScreenPreview() {
-    // preview-only placeholder values; the real screen shows the reservation in progress
     BookingConfirmationScreen(
         roomNumber = "A1",
         roomType = "Sample Type",

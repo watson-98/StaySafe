@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -119,7 +120,7 @@ fun OwnerRoomListScreen(
             }
 
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().testTag("owner_room_list"),
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -167,7 +168,6 @@ private fun OwnerRoomTab(
 
 @Composable
 private fun OwnerRoomRow(room: Room, onClick: () -> Unit) {
-    // owners can open booked rooms too
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
@@ -179,7 +179,7 @@ private fun OwnerRoomRow(room: Room, onClick: () -> Unit) {
             modifier = Modifier.padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // TODO: replace with a real photo
+            // to be replaced with real photo
             Box(
                 modifier = Modifier
                     .size(width = 76.dp, height = 72.dp)
@@ -238,7 +238,6 @@ private fun OwnerStatusChip(status: RoomStatus) {
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun OwnerRoomListScreenPreview() {
-    // preview-only placeholder values; the real screen gets its rooms from the database
     OwnerRoomListScreen(
         rooms = listOf(
             Room("A1", "Sample Type", RoomStatus.Vacant, 1000, hasWifi = true, hasAirConditioning = true),
