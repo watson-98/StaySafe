@@ -225,7 +225,6 @@ private fun PaymentMethodRow(
     }
 }
 
-// to be replaced with a logo later
 @Composable
 private fun MethodLogo(method: PaymentMethodInfo) {
     Box(

@@ -156,6 +156,41 @@ object HotelRepository {
         return null
     }
 
+    fun generateTemporaryPassword(phone: String, role: UserRole): Pair<String?, String?> {
+        val database = database()
+        val record = database.findUser(phone.trim())
+            ?: return Pair("This phone number is not registered", null)
+        if (record.user.role != role) {
+            val registeredAs = if (record.user.role == UserRole.HotelOwner) "a Hotel Owner" else "a Guest"
+            return Pair("This number is registered as $registeredAs. Choose the other tab.", null)
+        }
+        val tempPassword = "@Temp" + (1000..9999).random()
+        val salt = PasswordHasher.newSalt()
+        val hash = PasswordHasher.hash(tempPassword, salt)
+        database.updateUserPassword(phone.trim(), hash, salt)
+        return Pair(null, tempPassword)
+    }
+
+    fun changePassword(phone: String, role: UserRole, existingPassword: String, newPassword: String): String? {
+        val database = database()
+        val record = database.findUser(phone.trim())
+            ?: return "This phone number is not registered"
+        if (record.user.role != role) {
+            val registeredAs = if (record.user.role == UserRole.HotelOwner) "a Hotel Owner" else "a Guest"
+            return "This number is registered as $registeredAs. Choose the other tab."
+        }
+        if (!PasswordHasher.matches(existingPassword, record.salt, record.passwordHash)) {
+            return "Existing password is incorrect"
+        }
+        if (newPassword.isBlank()) {
+            return "New password cannot be empty"
+        }
+        val salt = PasswordHasher.newSalt()
+        val hash = PasswordHasher.hash(newPassword, salt)
+        database.updateUserPassword(phone.trim(), hash, salt)
+        return null
+    }
+
     fun logout() {
         currentUser = null
         bookings.clear()

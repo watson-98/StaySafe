@@ -179,7 +179,6 @@ private fun OwnerRoomRow(room: Room, onClick: () -> Unit) {
             modifier = Modifier.padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // to be replaced with real photo
             Box(
                 modifier = Modifier
                     .size(width = 76.dp, height = 72.dp)

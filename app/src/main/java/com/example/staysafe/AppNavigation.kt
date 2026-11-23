@@ -17,6 +17,8 @@ import com.example.staysafe.data.HotelRepository
 import com.example.staysafe.ui.booking.BookingConfirmationScreen
 import com.example.staysafe.ui.booking.BookingSuccessScreen
 import com.example.staysafe.ui.home.HomeScreen
+import com.example.staysafe.ui.login.ChangePasswordScreen
+import com.example.staysafe.ui.login.ForgotPasswordScreen
 import com.example.staysafe.ui.login.LoginScreen
 import com.example.staysafe.ui.login.SignUpScreen
 import com.example.staysafe.ui.login.UserRole
@@ -33,6 +35,8 @@ import com.example.staysafe.ui.rooms.RoomStatus
 object Routes {
     const val LOGIN = "login"
     const val SIGN_UP = "sign_up"
+    const val FORGOT_PASSWORD = "forgot_password"
+    const val CHANGE_PASSWORD = "change_password"
     const val HOME = "home"
     const val ROOM_LIST = "room_list/{hotelName}"
     const val ROOM_DETAILS = "room_details/{hotelName}/{roomNumber}"
@@ -43,12 +47,13 @@ object Routes {
     const val OWNER_ROOMS = "owner_rooms"
     const val OWNER_PROFILE = "owner_profile"
     const val ADD_ROOM = "add_room"
-
-    // Uri.encode keeps names with spaces valid in a route
     fun roomList(hotelName: String) = "room_list/${Uri.encode(hotelName)}"
 
     fun roomDetails(hotelName: String, roomNumber: String) =
         "room_details/${Uri.encode(hotelName)}/${Uri.encode(roomNumber)}"
+
+    fun changePassword(phone: String, role: UserRole) =
+        "change_password?phone=${Uri.encode(phone)}&role=${role.name}"
 }
 
 @Composable
@@ -58,7 +63,6 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
     var loginError by remember { mutableStateOf<String?>(null) }
     var signUpError by remember { mutableStateOf<String?>(null) }
 
-    // login stays on the back stack so Back returns to it
     fun goToStartScreen(role: UserRole) {
         val destination = if (role == UserRole.HotelOwner) Routes.OWNER_DASHBOARD else Routes.HOME
         navController.navigate(destination)
@@ -73,8 +77,6 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
     }
 
     NavHost(navController = navController, startDestination = Routes.LOGIN) {
-
-        // ---------- Login / Sign Up ----------
         composable(Routes.LOGIN) {
             LoginScreen(
                 errorMessage = loginError,
@@ -88,6 +90,14 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                 onSignUpClick = {
                     loginError = null
                     navController.navigate(Routes.SIGN_UP)
+                },
+                onForgotPasswordClick = {
+                    loginError = null
+                    navController.navigate(Routes.FORGOT_PASSWORD)
+                },
+                onChangePasswordClick = {
+                    loginError = null
+                    navController.navigate(Routes.changePassword("", UserRole.Guest))
                 }
             )
         }
@@ -107,8 +117,42 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                 }
             )
         }
+        composable(Routes.FORGOT_PASSWORD) {
+            ForgotPasswordScreen(
+                onSendTemporaryPasswordClick = { phone, role ->
+                    HotelRepository.generateTemporaryPassword(phone, role)
+                },
+                onProceedToChangePasswordClick = { phone, role ->
+                    navController.navigate(Routes.changePassword(phone, role))
+                },
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+        composable(
+            route = "change_password?phone={phone}&role={role}",
+            arguments = listOf(
+                navArgument("phone") { type = NavType.StringType; defaultValue = "" },
+                navArgument("role") { type = NavType.StringType; defaultValue = UserRole.Guest.name }
+            )
+        ) { backStackEntry ->
+            val phone = backStackEntry.arguments?.getString("phone").orEmpty()
+            val roleName = backStackEntry.arguments?.getString("role").orEmpty()
+            val role = try { UserRole.valueOf(roleName) } catch (e: Exception) { UserRole.Guest }
 
-        // ---------- Guest flow ----------
+            ChangePasswordScreen(
+                initialPhone = phone,
+                initialRole = role,
+                onChangePasswordClick = { p, r, existing, new ->
+                    HotelRepository.changePassword(p, r, existing, new)
+                },
+                onSuccess = {
+                    navController.popBackStack(Routes.LOGIN, inclusive = false)
+                },
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        //Guest flow
         composable(Routes.HOME) {
             HomeScreen(
                 onHotelClick = { hotel -> navController.navigate(Routes.roomList(hotel.name)) },
@@ -158,7 +202,6 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
             )
         }
         composable(Routes.BOOKING_CONFIRM) {
-            // no reservation in progress (for example after the app was restarted): go back
             val draft = HotelRepository.draft
             if (draft == null) {
                 LaunchedEffect(Unit) { navController.popBackStack() }
@@ -193,7 +236,7 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                 methods = HotelRepository.paymentMethods,
                 onBackClick = { navController.popBackStack() },
                 onPayNowClick = { method ->
-                    // saves the booking and marks the room as booked in the database
+                    // save the booking and mark the room as booked in the database
                     if (HotelRepository.confirmBooking(method.name) != null) {
                         navController.navigate(Routes.BOOKING_SUCCESS)
                     }
@@ -220,7 +263,7 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
             )
         }
 
-        // ---------- Owner flow ----------
+        // Owner flow
         composable(Routes.OWNER_DASHBOARD) {
             val hotel = HotelRepository.ownerHotel()
             OwnerDashboardScreen(

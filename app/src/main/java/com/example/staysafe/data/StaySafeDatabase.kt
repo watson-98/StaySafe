@@ -185,6 +185,14 @@ class StaySafeDatabase(
         writableDatabase.insertOrThrow("users", null, values)
     }
 
+    fun updateUserPassword(phone: String, newPasswordHash: String, newSalt: String) {
+        val values = ContentValues().apply {
+            put("password_hash", newPasswordHash)
+            put("salt", newSalt)
+        }
+        writableDatabase.update("users", values, "phone = ?", arrayOf(phone))
+    }
+
     // reference data
     private fun names(sql: String): List<String> {
         val list = mutableListOf<String>()

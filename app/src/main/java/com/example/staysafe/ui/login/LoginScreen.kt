@@ -32,6 +32,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalAutofill
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -48,6 +50,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalAutofill
 
 val StayBlue = Color(0xFF1565D8)
 val StayBlueDark = Color(0xFF0D47A1)
@@ -70,7 +74,9 @@ fun LoginScreen(
     errorMessage: String? = null,
     onInputChange: () -> Unit = {},
     onLoginClick: (phone: String, password: String, role: UserRole) -> Unit = { _, _, _ -> },
-    onSignUpClick: () -> Unit = {}
+    onSignUpClick: () -> Unit = {},
+    onForgotPasswordClick: () -> Unit = {},
+    onChangePasswordClick: () -> Unit = {}
 ) {
     var selectedRole by remember { mutableStateOf(UserRole.Guest) }
     var phone by remember { mutableStateOf("") }
@@ -91,7 +97,6 @@ fun LoginScreen(
         ) {
             Spacer(modifier = Modifier.height(72.dp))
 
-            // to be replaced with a logo
             Icon(
                 imageVector = Icons.Outlined.Hotel,
                 contentDescription = "StaySafe logo",
@@ -166,6 +171,23 @@ fun LoginScreen(
                 }
             )
 
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text(
+                    text = "Forgot Password?",
+                    color = StayBlue,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .testTag("forgot_password_link")
+                        .clickable { onForgotPasswordClick() }
+                )
+            }
+
             if (errorMessage != null) {
                 Text(
                     text = errorMessage,
@@ -203,6 +225,20 @@ fun LoginScreen(
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clickable { onSignUpClick() }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Change Password",
+                    color = StayBlue,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .testTag("change_password_link")
+                        .clickable { onChangePasswordClick() }
                 )
             }
 
@@ -275,29 +311,31 @@ fun InputField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailingContent: (@Composable () -> Unit)? = null
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = modifier
-            .fillMaxWidth()
-            .height(56.dp),
-        singleLine = true,
-        shape = RoundedCornerShape(10.dp),
-        placeholder = { Text(text = placeholder, color = HintGray, fontSize = 14.sp) },
-        leadingIcon = {
-            Icon(imageVector = leadingIcon, contentDescription = null, tint = TextGray)
-        },
-        trailingIcon = trailingContent,
-        visualTransformation = visualTransformation,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = FieldBackground,
-            unfocusedContainerColor = FieldBackground,
-            focusedBorderColor = StayBlue,
-            unfocusedBorderColor = FieldBorder,
-            cursorColor = StayBlue
+    CompositionLocalProvider(LocalAutofill provides null) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            singleLine = true,
+            shape = RoundedCornerShape(10.dp),
+            placeholder = { Text(text = placeholder, color = HintGray, fontSize = 14.sp) },
+            leadingIcon = {
+                Icon(imageVector = leadingIcon, contentDescription = null, tint = TextGray)
+            },
+            trailingIcon = trailingContent,
+            visualTransformation = visualTransformation,
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = FieldBackground,
+                unfocusedContainerColor = FieldBackground,
+                focusedBorderColor = StayBlue,
+                unfocusedBorderColor = FieldBorder,
+                cursorColor = StayBlue
+            )
         )
-    )
+    }
 }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)

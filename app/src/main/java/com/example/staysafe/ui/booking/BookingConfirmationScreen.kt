@@ -105,7 +105,7 @@ fun BookingConfirmationScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                           // to be replaced with real photos later
+
                             Box(
                                 modifier = Modifier
                                     .size(width = 76.dp, height = 68.dp)

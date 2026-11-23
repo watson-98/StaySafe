@@ -89,7 +89,6 @@ fun HomeScreen(
     onProfileClick: () -> Unit = {},
     onLogoutClick: () -> Unit = {}
 ) {
-    // rememberSaveable so state survives navigating away and back
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var searchText by rememberSaveable { mutableStateOf("") }
     var selectedCity by rememberSaveable { mutableStateOf(initialCity) }
